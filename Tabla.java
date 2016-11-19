@@ -19,5 +19,9 @@ class Tabla{
 		reservadas.put("if","IF");
 		reservadas.put("then","THEN");
 		reservadas.put("else","ELSE");
+		reservadas.put("and","AND");
+		reservadas.put("or","OR");
+		reservadas.put("not","NOT");
+		reservadas.put("nil","NIL");
 	}
 }
