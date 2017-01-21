@@ -1,0 +1,213 @@
+import java_cup.runtime.*;
+
+
+/* Terminals  (tokens returned by the scanner). */
+terminal String LITERAL;
+terminal Integer INT;
+terminal Float FLOAT;
+terminal boolean TRUE, FALSE;
+terminal COMMA, SEMICOLON, CRLF, REQUIRE, END, DEF, RETURN, IF, THEN, ELSE, ELSIF, UNLESS, WHILE, RETRY, BREAK, FOR, PLUS, MINUS, MUL, DIV, MOD, EXP, EQUAL, NOT_EQUAL, GREATER, LESS, LESS_EQUAL, GREATER_EQUAL, ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN, BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_SHL, BIT_SHR, AND, OR, NOT, LEFT_RBRACKET, RIGHT_RBRACKET, LEFT_SBRACKET, RIGHT_SBRACKET, NIL, ID, ID_GLOBAL, ID_FUNCTION;
+
+/* Non terminals */
+non terminal Integer int_t, rvalue, int_result;
+non terminal Float float_result, float_t;
+non terminal prog, expression_list, expression, require_block, function_definition, function_definition_body, function_definition_header, function_name, function_definition_params, function_definition_params_list, return_statement, function_call, function_call_param_list, function_call_params, if_elsif_statement, if_statement, unless_statement, while_statement, while_expression_list, for_statement, for_expression_list, assignment, array_assignment, array_definition, array_definition_elements, array_selector, string_result, lvalue, literal_t, bool_t, nil_t, id, id_global, id_function, terminator, crlf;
+
+/* Precedences based in http://stackoverflow.com/questions/21060234/ruby-operator-precedence-table */
+precedence right PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN;
+precedence right ASSIGN;
+precedence left OR;
+precedence left AND;
+precedence nonassoc EQUAL, NOT_EQUAL, GREATER, LESS, LESS_EQUAL, GREATER_EQUAL;
+precedence left BIT_OR, BIT_XOR;
+precedence left BIT_AND;
+precedence left BIT_SHR, BIT_SHL;
+precedence left PLUS, MINUS;
+precedence left MUL, DIV, MOD;
+precedence right EXP;
+
+
+
+prog ::= expression_list;
+
+expression_list ::= expression terminator
+    		  | expression_list expression terminator;
+
+expression ::= function_definition
+    		  | require_block
+  		  	| if_statement
+ 	        | unless_statement
+    			| rvalue:result                                    {: System.out.println(result); :}
+    			| return_statement
+    			| while_statement
+    			| for_statement;
+
+require_block ::= REQUIRE literal_t;
+
+function_definition ::= function_definition_header function_definition_body END;
+
+function_definition_body ::= expression_list;
+
+function_definition_header ::= DEF function_name crlf
+    			| DEF function_name function_definition_params crlf;
+
+function_name ::= id_function
+    			| id;
+
+function_definition_params ::= LEFT_RBRACKET function_definition_params_list RIGHT_RBRACKET
+    			| function_definition_params_list;
+
+function_definition_params_list ::= id
+    		  | function_definition_params_list COMMA id;
+
+return_statement ::= RETURN rvalue;
+
+function_call ::= function_name LEFT_RBRACKET function_call_param_list RIGHT_RBRACKET
+			    | function_name function_call_param_list
+			    | function_name LEFT_RBRACKET RIGHT_RBRACKET;
+
+function_call_param_list ::= function_call_params;
+
+function_call_params ::= rvalue
+					| function_call_params COMMA rvalue;
+
+if_elsif_statement ::= ELSIF rvalue crlf expression_list
+					| ELSIF rvalue crlf expression_list ELSE crlf expression_list
+					| ELSIF rvalue crlf expression_list if_elsif_statement;
+
+if_statement ::= IF rvalue crlf expression_list END
+			    | IF rvalue THEN expression_list END
+			    | IF rvalue crlf expression_list ELSE crlf expression_list END
+			    | IF rvalue THEN expression_list ELSE expression_list END
+			    | IF rvalue crlf expression_list if_elsif_statement END;
+
+unless_statement ::= UNLESS rvalue crlf expression_list END;
+
+while_statement ::= WHILE rvalue crlf while_expression_list END;
+
+while_expression_list ::= expression terminator
+			    | RETRY terminator
+			    | BREAK terminator
+			    | while_expression_list expression terminator
+			    | while_expression_list RETRY terminator
+			    | while_expression_list BREAK terminator;
+
+for_statement ::= FOR LEFT_RBRACKET expression SEMICOLON expression SEMICOLON expression
+ 											RIGHT_RBRACKET crlf for_expression_list END
+    			| FOR expression SEMICOLON expression SEMICOLON expression crlf for_expression_list END;
+
+for_expression_list ::= expression terminator
+			    | RETRY terminator
+			    | BREAK terminator
+			    | for_expression_list expression terminator
+			    | for_expression_list RETRY terminator
+			    | for_expression_list BREAK terminator;
+
+assignment ::= lvalue ASSIGN rvalue
+			    | lvalue PLUS_ASSIGN rvalue
+					| lvalue MINUS_ASSIGN rvalue
+					| lvalue MUL_ASSIGN rvalue
+					| lvalue DIV_ASSIGN rvalue
+					| lvalue MOD_ASSIGN rvalue
+					| lvalue EXP_ASSIGN rvalue;
+
+array_assignment ::= lvalue array_definition ASSIGN rvalue
+    			| lvalue ASSIGN array_definition;
+
+array_definition ::= LEFT_SBRACKET array_definition_elements RIGHT_SBRACKET
+    			| LEFT_SBRACKET RIGHT_SBRACKET;
+
+array_definition_elements ::= rvalue
+    			| array_definition_elements COMMA rvalue;
+
+array_selector ::= id LEFT_SBRACKET rvalue RIGHT_SBRACKET
+			    | id_global LEFT_SBRACKET rvalue RIGHT_SBRACKET
+			    | function_call LEFT_SBRACKET rvalue RIGHT_SBRACKET;
+
+int_result ::= int_result:num1 MUL int_result:num2           {: RESULT = num1 * num2; :}
+					| int_result:num1 DIV int_result:num2              {: RESULT = num1 / num2; :}
+					| int_result:num1 MOD int_result:num2              {: RESULT = num1 % num2; :}
+			    | int_result:num1 PLUS int_result:num2             {: RESULT = num1 + num2; :}
+					| int_result:num1 MINUS int_result:num2            {: RESULT = num1 - num2; :}
+			    | int_t:num                                        {: RESULT = num; :};
+
+float_result ::= float_result:num1 MUL float_result          {: RESULT = num1 * num2; :}
+					| float_result:num1 DIV float_result:num2          {: RESULT = num1 / num2; :}
+					| float_result:num1 MOD float_result:num2          {: RESULT = num1 % num2; :}
+			    | int_result MUL:num1 float_result:num2            {: RESULT = num1 * num2; :}
+					| int_result DIV:num1 float_result:num2            {: RESULT = num1 / num2; :}
+					| int_result MOD:num1 float_result:num2            {: RESULT = num1 % num2; :}
+			    | float_result:num1 MUL int_result:num2            {: RESULT = num1 * num2; :}
+					| float_result:num1 DIV int_result:num2            {: RESULT = num1 / num2; :}
+					| float_result:num1 MOD int_result:num2            {: RESULT = num1 % num2; :}
+			    | float_result:num1 PLUS float_result:num2         {: RESULT = num1 + num2; :}
+					| float_result:num1 MINUS float_result:num2        {: RESULT = num1 - num2; :}
+			    | int_result:num1 PLUS float_result:num2           {: RESULT = num1 + num2; :}
+					| int_result:num1 MINUS float_result:num2          {: RESULT = num1 - num2; :}
+			    | float_result:num1 PLUS int_result:num2           {: RESULT = num1 + num2; :}
+					| float_result:num1 MINUS int_result:num2          {: RESULT = num1 - num2; :}
+			    | float_t:num                                      {: RESULT = num; :};
+
+string_result ::= string_result MUL int_result
+    			| int_result MUL string_result
+    			| literal_t;
+
+lvalue ::= id
+    			| id_global;
+
+rvalue ::= lvalue
+					| int_result:num                                    {: RESULT = num; :}
+					| float_result:num                                  {: RESULT = num; :}
+					| string_result
+					| assignment
+					/* | literal_t */
+					| bool_t
+					/* | float_t */
+					/* | int_t */
+					| nil_t
+					| rvalue EXP rvalue
+					| NOT rvalue
+					| BIT_NOT rvalue
+					/*| rvalue MUL rvalue
+					| rvalue DIV rvalue
+					| rvalue MOD  rvalue
+					| rvalue PLUS rvalue
+					| rvalue MINUS rvalue*/
+					| rvalue BIT_SHL rvalue
+					| rvalue BIT_SHR rvalue
+					| rvalue BIT_AND rvalue
+					| rvalue BIT_OR rvalue
+					| rvalue BIT_XOR rvalue
+					| rvalue LESS rvalue
+					| rvalue GREATER rvalue
+					| rvalue LESS_EQUAL rvalue
+					| rvalue GREATER_EQUAL rvalue
+					| rvalue EQUAL rvalue
+					| rvalue NOT_EQUAL rvalue
+					| rvalue OR rvalue
+					| rvalue AND rvalue
+					| LEFT_RBRACKET rvalue RIGHT_RBRACKET;
+
+literal_t ::= LITERAL;
+
+float_t ::= FLOAT;
+
+int_t ::= INT:num                                         {: RESULT = num; :};
+
+bool_t ::= TRUE
+		| FALSE;
+
+nil_t ::= NIL;
+
+id ::= ID;
+
+id_global ::= ID_GLOBAL;
+
+id_function ::= ID_FUNCTION;
+
+terminator ::= terminator SEMICOLON
+				| terminator crlf
+				| SEMICOLON
+				| crlf;
+
+crlf ::= CRLF;
