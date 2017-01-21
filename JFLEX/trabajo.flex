@@ -3,8 +3,8 @@ import java_cup.runtime.Symbol;
 %%
 %unicode
 %class analex
-%standalone
 %line
+%cup
 %column
 
 %{
