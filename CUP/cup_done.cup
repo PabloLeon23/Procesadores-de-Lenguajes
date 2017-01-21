@@ -37,7 +37,7 @@ non terminal id_function, terminator, crlf;
 prog ::= expression_list;
 expression_list ::= expression terminator
     | expression_list expression terminator;
-expression: function_definition
+expression ::= function_definition
     | require_block
     | if_statement
     | unless_statement
@@ -63,7 +63,7 @@ function_call ::= function_name LEFT_RBRACKET function_call_param_list RIGHT_RBR
 function_call_param_list ::= function_call_params;
 function_call_params ::= rvalue
     | function_call_params COMMA rvalue;
-if_elsif_state,emt ::= ELSIF rvalue crlf expression_list
+if_elsif_statement ::= ELSIF rvalue crlf expression_list
     | ELSIF rvalue crlf expression_list ELSE crlf expression_list
     | ELSIF rvalue crlf expression_list if_elsif_statement;
 if_statement ::= IF rvalue crlf expression_list END
@@ -80,7 +80,7 @@ while_expression_list ::= expression terminator
     | while_expression_list RETRY terminator
     | while_expression_list BREAK terminator;
 for_statement ::= FOR LEFT_RBRACKET expression SEMICOLON expression SEMICOLON expression RIGHT_RBRACKET crlf for_expression_list END
-    | FOR expression SEMICOLON expression SEMICOLON expression crlf for_expression_list END
+    | FOR expression SEMICOLON expression SEMICOLON expression crlf for_expression_list END;
 for_expression_list ::= expression terminator
     | RETRY terminator
     | BREAK terminator

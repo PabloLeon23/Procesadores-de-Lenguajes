@@ -1,3 +1,5 @@
+import java_cup.runtime.Symbol;
+
 %%
 %unicode
 %class analex
@@ -18,13 +20,17 @@ ESCAPED_QUOTE = "\\\\\""
 <YYINITIAL> {
 
 "\""({ESCAPED_QUOTE} | ([^\"]))* "\"" | "'"([^'])*"'"
-					{System.out.println("token: LITERAL("+yytext()+")");}
+					{System.out.println("token: LITERAL("+yytext()+")");
+					 return new Symbol(sym.LITERAL, yytext());}
 "\""({ESCAPED_QUOTE} | ([^\"]))* | "'"[^']*
 					{System.out.println("token invalido: "+yytext()+" - Cadena de texto no cerrada - Línea: "+yyline);}
 
-","					{System.out.println("token: COMMA");}
-";"					{System.out.println("token: SEMICOLON");}
-("\n")				{System.out.println("token: CRLF");}
+","					{System.out.println("token: COMMA");
+					return new Symbol(sym.COMMA, yytext());}
+";"					{System.out.println("token: SEMICOLON");
+					return new Symbol(sym.SEMICOLON, yytext());}
+("\n")				{System.out.println("token: CRLF");
+				return new Symbol(sym.CRLF, yytext());}
 
 [0-9]+{ID}			{System.out.println("token invalido: " + yytext()+" - Identificador ilegal - Línea: "+yyline);}
 {ID}				{String x = yytext(); 
@@ -32,55 +38,94 @@ ESCAPED_QUOTE = "\\\\\""
 						System.out.println("token: " + tabla.reservadas.get(x));
 					 else 
 					 	System.out.println("token: ID(" + x + ")");
-					 }
-{ID}[!?]			{System.out.println("token: ID_FUNCTION(" + yytext() + ")");}
-"$"{ID}				{System.out.println("token: ID_GLOBAL(" + yytext() + ")");  }
--?[0-9]+			{System.out.println("token: INT(" + yytext() + ")");}
--?[0-9]+"."[0-9]+	{System.out.println("token: FLOAT(" + yytext() + ")");}
+					 return new Symbol(sym.ID, yytext());}
+{ID}[!?]			{System.out.println("token: ID_FUNCTION(" + yytext() + ")");
+				return new Symbol(sym.ID_FUNCTION, yytext());}
+"$"{ID}				{System.out.println("token: ID_GLOBAL(" + yytext() + ")");
+				return new Symbol(sym.ID_GLOBAL, yytext());}
+-?[0-9]+			{System.out.println("token: INT(" + yytext() + ")");
+				return new Symbol(sym.INT, yytext());}
+-?[0-9]+"."[0-9]+	{System.out.println("token: FLOAT(" + yytext() + ")");
+				return new Symbol(sym.FLOAT, yytext());}
 
-"=="				{System.out.println("token: EQUAL");}
-"!="				{System.out.println("token: NOT_EQUAL");}
-"<="				{System.out.println("token: LESS_EQUAL");}
-">="				{System.out.println("token: GREATER_EQUAL");}
-">"					{System.out.println("token: GREATER");}
-"<"					{System.out.println("token: LESS");}
+"=="				{System.out.println("token: EQUAL");
+				return new Symbol(sym.EQUAL, yytext());}
+"!="				{System.out.println("token: NOT_EQUAL");
+				return new Symbol(sym.NOT_EQUAL, yytext());}
+"<="				{System.out.println("token: LESS_EQUAL");
+				return new Symbol(sym.LESS_EQUAL, yytext());}
+">="				{System.out.println("token: GREATER_EQUAL");
+				return new Symbol(sym.GREATER_EQUAL, yytext());}
+">"					{System.out.println("token: GREATER");
+				return new Symbol(sym.GREATER, yytext());}
+"<"					{System.out.println("token: LESS");
+				return new Symbol(sym.LESS, yytext());}
 
-"+="				{System.out.println("token: PLUS_ASSIGN");}
-"-="				{System.out.println("token: MINUS_ASSIGN");}
-"/="				{System.out.println("token: DIV_ASSIGN");}
-"%="				{System.out.println("token: MOD_ASSIGN");}
-"**="				{System.out.println("token: EXP_ASSIGN");}
-"*="				{System.out.println("token: MUL_ASSIGN");}
-"="					{System.out.println("token: ASSIGN");}
+"+="				{System.out.println("token: PLUS_ASSIGN");
+				return new Symbol(sym.PLUS_ASSIGN, yytext());}
+"-="				{System.out.println("token: MINUS_ASSIGN");
+				return new Symbol(sym.MINUS_ASSIGN, yytext());}
+"/="				{System.out.println("token: DIV_ASSIGN");
+				return new Symbol(sym.DIV_ASSIGN, yytext());}
+"%="				{System.out.println("token: MOD_ASSIGN");
+				return new Symbol(sym.MOD_ASSIGN, yytext());}
+"**="				{System.out.println("token: EXP_ASSIGN");
+				return new Symbol(sym.EXP_ASSIGN, yytext());}
+"*="				{System.out.println("token: MUL_ASSIGN");
+				return new Symbol(sym.MUL_ASSIGN, yytext());}
+"="					{System.out.println("token: ASSIGN");
+				return new Symbol(sym.ASSIGN, yytext());}
 
-"+"					{System.out.println("token: PLUS");}
-"-"					{System.out.println("token: MINUS");}
-"/"					{System.out.println("token: DIV");}
-"%"					{System.out.println("token: MOD");}
-"**"				{System.out.println("token: EXP");}
-"*"					{System.out.println("token: MUL");}
+"+"					{System.out.println("token: PLUS");
+				return new Symbol(sym.PLUS, yytext());}
+"-"					{System.out.println("token: MINUS");
+				return new Symbol(sym.MINUS, yytext());}
+"/"					{System.out.println("token: DIV");
+				return new Symbol(sym.DIV, yytext());}
+"%"					{System.out.println("token: MOD");
+				return new Symbol(sym.MOD, yytext());}
+"**"				{System.out.println("token: EXP");
+				return new Symbol(sym.EXP, yytext());}
+"*"					{System.out.println("token: MUL");
+				return new Symbol(sym.MUL, yytext());}
 
-"&&"				{System.out.println("token: AND");}
-"||"				{System.out.println("token: OR");}
-"!"					{System.out.println("token: NOT");}
+"&&"				{System.out.println("token: AND");
+				return new Symbol(sym.AND, yytext());}
+"||"				{System.out.println("token: OR");
+				return new Symbol(sym.OR, yytext());}
+"!"					{System.out.println("token: NOT");
+				return new Symbol(sym.NOT, yytext());}
 
-"&"					{System.out.println("token: BIT_AND");}
-"|"					{System.out.println("token: BIT_OR");}
-"^"					{System.out.println("token: BIT_XOR");}
-"~"					{System.out.println("token: BIT_NOT");}
-">>"				{System.out.println("token: BIT_SHR");}
-"<<"				{System.out.println("token: BIT_SHL");}
+"&"					{System.out.println("token: BIT_AND");
+				return new Symbol(sym.BIT_AND, yytext());}
+"|"					{System.out.println("token: BIT_OR");
+				return new Symbol(sym.BIT_OR, yytext());}
+"^"					{System.out.println("token: BIT_XOR");
+				return new Symbol(sym.BIT_XOR, yytext());}
+"~"					{System.out.println("token: BIT_NOT");
+				return new Symbol(sym.BIT_NOT, yytext());}
+">>"				{System.out.println("token: BIT_SHR");
+				return new Symbol(sym.BIT_SHR, yytext());}
+"<<"				{System.out.println("token: BIT_SHL");
+				return new Symbol(sym.BIT_SHL, yytext());}
 
-"("					{System.out.println("token: LEFT_RBRACKET");}
-")"					{System.out.println("token: RIGHT_RBRACKET");}
-"["					{System.out.println("token: LEFT_SBRACKET");}
-"]"					{System.out.println("token: RIGHT_SBRACKET");}
+"("					{System.out.println("token: LEFT_RBRACKET");
+				return new Symbol(sym.LEFT_RBRACKET, yytext());}
+")"					{System.out.println("token: RIGHT_RBRACKET");
+				return new Symbol(sym.RIGHT_RBRACKET, yytext());}
+"["					{System.out.println("token: LEFT_SBRACKET");
+				return new Symbol(sym.LEFT_SBRACKET, yytext());}
+"]"					{System.out.println("token: RIGHT_SBRACKET");
+				return new Symbol(sym.RIGHT_SBRACKET, yytext());}
 
-"#"~(\n|\r)			{System.out.println("token SL_COMMENT(" + yytext() + ")");  }
-"=begin"~"=end\n"	{System.out.println("token ML_COMMENT(" + yytext() + ")");}
+"#"~(\n|\r)			{System.out.println("token SL_COMMENT(" + yytext() + ")");
+				return new Symbol(sym.SL_COMMENT, yytext());}
+"=begin"~"=end\n"	{System.out.println("token ML_COMMENT(" + yytext() + ")");
+				return new Symbol(sym.ML_COMMENT, yytext());}
 "=begin"			{System.out.println("token invalido: " + yytext()+" - =begin sin =end - Línea: "+yyline);}
 "=end"			{System.out.println("token invalido: " + yytext()+" - =end sin =begin - Línea: "+yyline);}
-("\t" | " ")+		{System.out.println("token: WS");}
+("\t" | " ")+		{System.out.println("token: WS");
+				return new Symbol(sym.WS, yytext());}
 
 .					{System.out.println("token invalido:"+ yytext());}
 }
