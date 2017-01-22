@@ -688,12 +688,12 @@ static Tabla tabla = new Tabla();
           case 56: break;
           case 8: 
             { System.out.println("token: ASSIGN");
-				return new Symbol(sym.ASSIGN, yytext());
+										 return new Symbol(sym.ASSIGN, yytext());
             }
           case 57: break;
           case 9: 
             { System.out.println("token: NOT");
-				return new Symbol(sym.NOT, yytext());
+										 return new Symbol(sym.NOT, yytext());
             }
           case 58: break;
           case 10: 
@@ -708,67 +708,67 @@ static Tabla tabla = new Tabla();
           case 60: break;
           case 12: 
             { System.out.println("token: PLUS");
-				return new Symbol(sym.PLUS, yytext());
+										 return new Symbol(sym.PLUS, yytext());
             }
           case 61: break;
           case 13: 
             { System.out.println("token: MINUS");
-				return new Symbol(sym.MINUS, yytext());
+										 return new Symbol(sym.MINUS, yytext());
             }
           case 62: break;
           case 14: 
             { System.out.println("token: DIV");
-				return new Symbol(sym.DIV, yytext());
+										 return new Symbol(sym.DIV, yytext());
             }
           case 63: break;
           case 15: 
             { System.out.println("token: MOD");
-				return new Symbol(sym.MOD, yytext());
+										 return new Symbol(sym.MOD, yytext());
             }
           case 64: break;
           case 16: 
             { System.out.println("token: MUL");
-				return new Symbol(sym.MUL, yytext());
+										 return new Symbol(sym.MUL, yytext());
             }
           case 65: break;
           case 17: 
             { System.out.println("token: BIT_AND");
-				return new Symbol(sym.BIT_AND, yytext());
+										 return new Symbol(sym.BIT_AND, yytext());
             }
           case 66: break;
           case 18: 
             { System.out.println("token: BIT_OR");
-				return new Symbol(sym.BIT_OR, yytext());
+										 return new Symbol(sym.BIT_OR, yytext());
             }
           case 67: break;
           case 19: 
             { System.out.println("token: BIT_XOR");
-				return new Symbol(sym.BIT_XOR, yytext());
+										 return new Symbol(sym.BIT_XOR, yytext());
             }
           case 68: break;
           case 20: 
             { System.out.println("token: BIT_NOT");
-				return new Symbol(sym.BIT_NOT, yytext());
+										 return new Symbol(sym.BIT_NOT, yytext());
             }
           case 69: break;
           case 21: 
             { System.out.println("token: LEFT_RBRACKET");
-				return new Symbol(sym.LEFT_RBRACKET, yytext());
+										 return new Symbol(sym.LEFT_RBRACKET, yytext());
             }
           case 70: break;
           case 22: 
             { System.out.println("token: RIGHT_RBRACKET");
-				return new Symbol(sym.RIGHT_RBRACKET, yytext());
+										 return new Symbol(sym.RIGHT_RBRACKET, yytext());
             }
           case 71: break;
           case 23: 
             { System.out.println("token: LEFT_SBRACKET");
-				return new Symbol(sym.LEFT_SBRACKET, yytext());
+										 return new Symbol(sym.LEFT_SBRACKET, yytext());
             }
           case 72: break;
           case 24: 
             { System.out.println("token: RIGHT_SBRACKET");
-				return new Symbol(sym.RIGHT_SBRACKET, yytext());
+										 return new Symbol(sym.RIGHT_SBRACKET, yytext());
             }
           case 73: break;
           case 25: 
@@ -812,7 +812,7 @@ static Tabla tabla = new Tabla();
           case 81: break;
           case 33: 
             { System.out.println("token: BIT_SHL");
-				return new Symbol(sym.BIT_SHL, yytext());
+										 return new Symbol(sym.BIT_SHL, yytext());
             }
           case 82: break;
           case 34: 
@@ -822,7 +822,7 @@ static Tabla tabla = new Tabla();
           case 83: break;
           case 35: 
             { System.out.println("token: BIT_SHR");
-				return new Symbol(sym.BIT_SHR, yytext());
+										 return new Symbol(sym.BIT_SHR, yytext());
             }
           case 84: break;
           case 36: 
@@ -847,22 +847,22 @@ static Tabla tabla = new Tabla();
           case 88: break;
           case 40: 
             { System.out.println("token: MUL_ASSIGN");
-				return new Symbol(sym.MUL_ASSIGN, yytext());
+										 return new Symbol(sym.MUL_ASSIGN, yytext());
             }
           case 89: break;
           case 41: 
             { System.out.println("token: EXP");
-				return new Symbol(sym.EXP, yytext());
+										 return new Symbol(sym.EXP, yytext());
             }
           case 90: break;
           case 42: 
             { System.out.println("token: AND");
-				return new Symbol(sym.AND, yytext());
+										 return new Symbol(sym.AND, yytext());
             }
           case 91: break;
           case 43: 
             { System.out.println("token: OR");
-				return new Symbol(sym.OR, yytext());
+										 return new Symbol(sym.OR, yytext());
             }
           case 92: break;
           case 44: 
@@ -871,7 +871,7 @@ static Tabla tabla = new Tabla();
           case 93: break;
           case 45: 
             { System.out.println("token: FLOAT(" + yytext() + ")");
-										 return new Symbol(sym.FLOAT, new Float(Float.parseFloat(yytext())));
+										 return new Symbol(sym.FLOAT, new Double(Double.parseDouble(yytext())));
             }
           case 94: break;
           case 46: 
@@ -880,11 +880,13 @@ static Tabla tabla = new Tabla();
             }
           case 95: break;
           case 47: 
-            { System.out.println("token invalido: " + yytext()+" - =end sin =begin - Línea: "+yyline);
+            { System.out.println("token invalido: " + yytext() +
+											" - =end sin =begin - Línea: "+yyline);
             }
           case 96: break;
           case 48: 
-            { System.out.println("token invalido: " + yytext()+" - =begin sin =end - Línea: "+yyline);
+            { System.out.println("token invalido: " + yytext() +
+											" - =begin sin =end - Línea: "+yyline);
             }
           case 97: break;
           case 49: 

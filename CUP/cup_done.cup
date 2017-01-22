@@ -1,17 +1,128 @@
 import java_cup.runtime.*;
 
 
+action code {:
+    private final int PLUS = 1;
+    private final int MINUS = 2;
+    private final int DIV = 3;
+    private final int MUL = 4;
+    private final int EXP = 5;
+    private final int MOD = 6;
+
+    private VarInfo calcVarInfo_int_result(VarInfo num1, VarInfo num2, int operator){
+        if(num1.getType() == VarInfo.ERROR && num2.getType() == VarInfo.ERROR)
+           return new VarInfo(VarInfo.ERROR, (String)num1.getContent() + "; " + (String)num2.getContent());
+        else if(num1.getType() == VarInfo.ERROR)
+           return num1;
+        else if(num2.getType() == VarInfo.ERROR)
+           return num2;
+        else{
+           int int_result = 0;
+           switch(operator){
+              case MUL:
+                  int_result = (int)num1.getContent() * (int)num2.getContent();
+                  break;
+              case DIV:
+                  if((int)num2.getContent() == 0){
+                      System.out.println("Zero division");
+                      return new VarInfo(VarInfo.ERROR, "Zero division");
+                  }
+                  int_result = (int)num1.getContent() / (int)num2.getContent();
+                  break;
+              case PLUS:
+                  int_result = (int)num1.getContent() + (int)num2.getContent();
+                  break;
+              case MINUS:
+                  int_result = (int)num1.getContent() - (int)num2.getContent();
+                  break;
+              case MOD:
+                  int_result = (int)num1.getContent() % (int)num2.getContent();
+                  break;
+              case EXP:
+                  int_result = (int)Math.pow((int)num1.getContent(), (int)num2.getContent());
+                  break;
+           }
+           return new VarInfo(VarInfo.INT_TYPE, int_result);
+        }
+      }
+
+
+      private VarInfo calcVarInfo_float_result(VarInfo num1, VarInfo num2, int operator){
+          if(num1.getType() == VarInfo.ERROR && num2.getType() == VarInfo.ERROR)
+             return new VarInfo(VarInfo.ERROR, (String)num1.getContent() + "; " + (String)num2.getContent());
+          else if(num1.getType() == VarInfo.ERROR)
+             return num1;
+          else if(num2.getType() == VarInfo.ERROR)
+             return num2;
+          else{
+             double float_result = 0;
+             double op1 = ((Number) num1.getContent()).doubleValue();
+             double op2 = ((Number) num2.getContent()).doubleValue();
+             switch(operator){
+                case MUL:
+                    float_result = op1 * op2;
+                    break;
+                case DIV:
+                    if(op2 == 0){
+                        System.out.println("Zero division");
+                        return new VarInfo(VarInfo.ERROR, "Zero division");
+                    }
+                    float_result = op1 / op2;
+                    break;
+                case PLUS:
+                    float_result = op1 + op2;
+                    break;
+                case MINUS:
+                    float_result = op1 - op2;
+                    break;
+                case MOD:
+                    float_result = op1 % op2;
+                    break;
+                case EXP:
+                    float_result = Math.pow(op1, op2);
+                    break;
+             }
+             return new VarInfo(VarInfo.FLOAT_TYPE, float_result);
+          }
+        }
+
+        public VarInfo calcVarInfo_string_result(VarInfo str, VarInfo num){
+            if(str.getType() == VarInfo.ERROR && num.getType() == VarInfo.ERROR)
+                    return new VarInfo(VarInfo.ERROR, (String)str.getContent() + "; " + (String)num.getContent());
+               else if(num.getType() == VarInfo.ERROR)
+                    return num;
+               else if(str.getType() == VarInfo.ERROR)
+                    return str;
+               else{
+                  int reps = (int)num.getContent();
+                  if(reps < 0){
+                     System.out.println("Negative Argument");
+                     return new VarInfo(VarInfo.ERROR, "Negative Argument");
+                  }
+                  else{
+                      String s = (String)str.getContent();
+                      String result = "";
+                      for(int i=0;i<reps;i++)
+                         result += s;
+                      return new VarInfo(VarInfo.STRING_TYPE, result);
+                  }
+              }
+        }
+:}
+
+
 /* Terminals  (tokens returned by the scanner). */
 terminal String LITERAL;
 terminal Integer INT;
-terminal Float FLOAT;
-terminal boolean TRUE, FALSE;
+terminal Double FLOAT;
+terminal Boolean TRUE, FALSE;
 terminal COMMA, SEMICOLON, CRLF, REQUIRE, END, DEF, RETURN, IF, THEN, ELSE, ELSIF, UNLESS, WHILE, RETRY, BREAK, FOR, PLUS, MINUS, MUL, DIV, MOD, EXP, EQUAL, NOT_EQUAL, GREATER, LESS, LESS_EQUAL, GREATER_EQUAL, ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN, BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_SHL, BIT_SHR, AND, OR, NOT, LEFT_RBRACKET, RIGHT_RBRACKET, LEFT_SBRACKET, RIGHT_SBRACKET, NIL, ID, ID_GLOBAL, ID_FUNCTION;
 
 /* Non terminals */
-non terminal Integer int_t, rvalue, int_result;
-non terminal Float float_result, float_t;
-non terminal prog, expression_list, expression, require_block, function_definition, function_definition_body, function_definition_header, function_name, function_definition_params, function_definition_params_list, return_statement, function_call, function_call_param_list, function_call_params, if_elsif_statement, if_statement, unless_statement, while_statement, while_expression_list, for_statement, for_expression_list, assignment, array_assignment, array_definition, array_definition_elements, array_selector, string_result, lvalue, literal_t, bool_t, nil_t, id, id_global, id_function, terminator, crlf;
+non terminal VarInfo rvalue, int_result, float_result, string_result;
+non terminal Integer int_t;
+non terminal Double float_t;
+non terminal prog, expression_list, expression, require_block, function_definition, function_definition_body, function_definition_header, function_name, function_definition_params, function_definition_params_list, return_statement, function_call, function_call_param_list, function_call_params, if_elsif_statement, if_statement, unless_statement, while_statement, while_expression_list, for_statement, for_expression_list, assignment, array_assignment, array_definition, array_definition_elements, array_selector, lvalue, literal_t, bool_t, nil_t, id, id_global, id_function, terminator, crlf;
 
 /* Precedences based in http://stackoverflow.com/questions/21060234/ruby-operator-precedence-table */
 precedence right PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN;
@@ -124,55 +235,148 @@ array_selector ::= id LEFT_SBRACKET rvalue RIGHT_SBRACKET
 			    | id_global LEFT_SBRACKET rvalue RIGHT_SBRACKET
 			    | function_call LEFT_SBRACKET rvalue RIGHT_SBRACKET;
 
-int_result ::= int_result:num1 MUL int_result:num2           {: RESULT = num1 * num2; :}
-					| int_result:num1 DIV int_result:num2              {: RESULT = num1 / num2; :}
-					| int_result:num1 MOD int_result:num2              {: RESULT = num1 % num2; :}
-			    | int_result:num1 PLUS int_result:num2             {: RESULT = num1 + num2; :}
-					| int_result:num1 MINUS int_result:num2            {: RESULT = num1 - num2; :}
-			    | int_t:num                                        {: RESULT = num; :};
+int_result ::= int_result:num1 MUL int_result:num2
+          {:
+             RESULT = calcVarInfo_int_result(num1, num2, MUL);
+          :}
+					| int_result:num1 DIV int_result:num2
+          {:
+             RESULT = calcVarInfo_int_result(num1, num2, DIV);
+           :}
+					| int_result:num1 MOD int_result:num2
+          {:
+             RESULT = calcVarInfo_int_result(num1, num2, MOD);
+          :}
+			    | int_result:num1 PLUS int_result:num2
+          {:
+             RESULT = calcVarInfo_int_result(num1, num2, PLUS);
+          :}
+					| int_result:num1 MINUS int_result:num2
+          {:
+             RESULT = calcVarInfo_int_result(num1, num2, MINUS);
+          :}
+          | int_result:num1 EXP int_result:num2
+          {:
+             RESULT = calcVarInfo_int_result(num1, num2, EXP);
+          :}
+          | LEFT_RBRACKET int_result:num RIGHT_RBRACKET
+          {:
+             RESULT = num;
+          :}
+			    | int_t:num
+          {:
+             RESULT = new VarInfo(VarInfo.INT_TYPE, num);
+          :};
 
-float_result ::= float_result:num1 MUL float_result          {: RESULT = num1 * num2; :}
-					| float_result:num1 DIV float_result:num2          {: RESULT = num1 / num2; :}
-					| float_result:num1 MOD float_result:num2          {: RESULT = num1 % num2; :}
-			    | int_result MUL:num1 float_result:num2            {: RESULT = num1 * num2; :}
-					| int_result DIV:num1 float_result:num2            {: RESULT = num1 / num2; :}
-					| int_result MOD:num1 float_result:num2            {: RESULT = num1 % num2; :}
-			    | float_result:num1 MUL int_result:num2            {: RESULT = num1 * num2; :}
-					| float_result:num1 DIV int_result:num2            {: RESULT = num1 / num2; :}
-					| float_result:num1 MOD int_result:num2            {: RESULT = num1 % num2; :}
-			    | float_result:num1 PLUS float_result:num2         {: RESULT = num1 + num2; :}
-					| float_result:num1 MINUS float_result:num2        {: RESULT = num1 - num2; :}
-			    | int_result:num1 PLUS float_result:num2           {: RESULT = num1 + num2; :}
-					| int_result:num1 MINUS float_result:num2          {: RESULT = num1 - num2; :}
-			    | float_result:num1 PLUS int_result:num2           {: RESULT = num1 + num2; :}
-					| float_result:num1 MINUS int_result:num2          {: RESULT = num1 - num2; :}
-			    | float_t:num                                      {: RESULT = num; :};
+float_result ::= float_result:num1 MUL float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MUL);
+          :}
+					| float_result:num1 DIV float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, DIV);
+          :}
+					| float_result:num1 MOD float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MOD);
+          :}
+			    | int_result:num1 MUL float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MUL);
+          :}
+					| int_result:num1 DIV float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, DIV);
+          :}
+					| int_result:num1 MOD float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MOD);
+          :}
+			    | float_result:num1 MUL int_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MUL);
+          :}
+					| float_result:num1 DIV int_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, DIV);
+          :}
+					| float_result:num1 MOD int_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MOD);
+          :}
+			    | float_result:num1 PLUS float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, PLUS);
+          :}
+					| float_result:num1 MINUS float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MINUS);
+          :}
+			    | int_result:num1 PLUS float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, PLUS);
+          :}
+					| int_result:num1 MINUS float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MINUS);
+          :}
+			    | float_result:num1 PLUS int_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, PLUS);
+          :}
+					| float_result:num1 MINUS int_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, MINUS);
+          :}
+          | float_result:num1 EXP float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, EXP);
+          :}
+          | int_result:num1 EXP float_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, EXP);
+          :}
+          | float_result:num1 EXP int_result:num2
+          {:
+             RESULT = calcVarInfo_float_result(num1, num2, EXP);
+          :}
+          | LEFT_RBRACKET float_result:num RIGHT_RBRACKET
+          {:
+             RESULT = num;
+          :}
+			    | float_t:num
+          {:
+             RESULT = new VarInfo(VarInfo.FLOAT_TYPE, num);
+          :};
 
-string_result ::= string_result MUL int_result
-    			| int_result MUL string_result
-    			| literal_t;
+string_result ::= string_result:str MUL int_result:num
+          {:
+            RESULT = calcVarInfo_string_result(str, num);
+          :}
+    			| int_result:num MUL string_result:str
+          {:
+            RESULT = calcVarInfo_string_result(str, num);
+          :}
+    			| literal_t:str
+          {:
+            RESULT = new VarInfo(VarInfo.STRING_TYPE, str);
+          :};
 
 lvalue ::= id
     			| id_global;
 
 rvalue ::= lvalue
-					| int_result:num                                    {: RESULT = num; :}
-					| float_result:num                                  {: RESULT = num; :}
-					| string_result
+					| int_result:num
+          {: RESULT = num; :}
+				  | float_result:num
+          {: RESULT = num; :}
+					| string_result:str
+          {: RESULT = str; :}
 					| assignment
-					/* | literal_t */
 					| bool_t
-					/* | float_t */
-					/* | int_t */
 					| nil_t
-					| rvalue EXP rvalue
 					| NOT rvalue
 					| BIT_NOT rvalue
-					/*| rvalue MUL rvalue
-					| rvalue DIV rvalue
-					| rvalue MOD  rvalue
-					| rvalue PLUS rvalue
-					| rvalue MINUS rvalue*/
 					| rvalue BIT_SHL rvalue
 					| rvalue BIT_SHR rvalue
 					| rvalue BIT_AND rvalue
@@ -186,11 +390,11 @@ rvalue ::= lvalue
 					| rvalue NOT_EQUAL rvalue
 					| rvalue OR rvalue
 					| rvalue AND rvalue
-					| LEFT_RBRACKET rvalue RIGHT_RBRACKET;
+					;
 
-literal_t ::= LITERAL;
+literal_t ::= LITERAL:str                                 {: RESULT = str; :};
 
-float_t ::= FLOAT;
+float_t ::= FLOAT:num                                     {: RESULT = num; :};
 
 int_t ::= INT:num                                         {: RESULT = num; :};
 
