@@ -32,15 +32,30 @@ public class rubyParser extends Parser {
 		NIL=55, SL_COMMENT=56, ML_COMMENT=57, WS=58, INT=59, FLOAT=60, ID=61, 
 		ID_GLOBAL=62, ID_FUNCTION=63;
 	public static final int
-		RULE_prog = 0, RULE_expression_list = 1, RULE_expression = 2, RULE_assignment = 3, 
-		RULE_int_result = 4, RULE_float_result = 5, RULE_string_result = 6, RULE_lvalue = 7, 
-		RULE_rvalue = 8, RULE_literal_t = 9, RULE_float_t = 10, RULE_int_t = 11, 
-		RULE_bool_t = 12, RULE_nil_t = 13, RULE_id = 14, RULE_id_global = 15, 
-		RULE_id_function = 16, RULE_terminator = 17, RULE_crlf = 18;
+		RULE_prog = 0, RULE_expression_list = 1, RULE_expression = 2, RULE_require_block = 3, 
+		RULE_function_definition = 4, RULE_function_definition_body = 5, RULE_function_definition_header = 6, 
+		RULE_function_name = 7, RULE_function_definition_params = 8, RULE_function_definition_params_list = 9, 
+		RULE_return_statement = 10, RULE_function_call = 11, RULE_function_call_param_list = 12, 
+		RULE_function_call_params = 13, RULE_if_elsif_statement = 14, RULE_if_statement = 15, 
+		RULE_unless_statement = 16, RULE_while_statement = 17, RULE_while_expression_list = 18, 
+		RULE_for_statement = 19, RULE_for_expression_list = 20, RULE_when_list = 21, 
+		RULE_rvalue_list = 22, RULE_assignment = 23, RULE_array_assignment = 24, 
+		RULE_array_definition = 25, RULE_array_definition_elements = 26, RULE_array_selector = 27, 
+		RULE_int_result = 28, RULE_float_result = 29, RULE_string_result = 30, 
+		RULE_lvalue = 31, RULE_rvalue = 32, RULE_literal_t = 33, RULE_float_t = 34, 
+		RULE_int_t = 35, RULE_bool_t = 36, RULE_nil_t = 37, RULE_id = 38, RULE_id_global = 39, 
+		RULE_id_function = 40, RULE_terminator = 41, RULE_crlf = 42;
 	public static final String[] ruleNames = {
-		"prog", "expression_list", "expression", "assignment", "int_result", "float_result", 
-		"string_result", "lvalue", "rvalue", "literal_t", "float_t", "int_t", 
-		"bool_t", "nil_t", "id", "id_global", "id_function", "terminator", "crlf"
+		"prog", "expression_list", "expression", "require_block", "function_definition", 
+		"function_definition_body", "function_definition_header", "function_name", 
+		"function_definition_params", "function_definition_params_list", "return_statement", 
+		"function_call", "function_call_param_list", "function_call_params", "if_elsif_statement", 
+		"if_statement", "unless_statement", "while_statement", "while_expression_list", 
+		"for_statement", "for_expression_list", "when_list", "rvalue_list", "assignment", 
+		"array_assignment", "array_definition", "array_definition_elements", "array_selector", 
+		"int_result", "float_result", "string_result", "lvalue", "rvalue", "literal_t", 
+		"float_t", "int_t", "bool_t", "nil_t", "id", "id_global", "id_function", 
+		"terminator", "crlf"
 	};
 
 	private static final String[] _LITERAL_NAMES = {
@@ -109,13 +124,69 @@ public class rubyParser extends Parser {
 	public ATN getATN() { return _ATN; }
 
 
+		/*Tabla de variables*/
 		Hashtable<String,VarInfo> varTable=new Hashtable<String,VarInfo>();
 		
+		/*Funciones auxiliares*/
+		
+		/*Devuelve el valor booleano de un tipo según el funcionamiento de los mismos en ruby*/
 		private boolean getBoolean(VarInfo var){
 			boolean r=true;
 			if(var.getType()==VarInfo.NIL_TYPE) r=false;
 			else if(var.getType()==VarInfo.NIL_TYPE) r=(boolean) var.getContent();
 			return r;
+		}
+		
+		/*Multiplica un entero por un String y devuelve un objeto VarInfo con el resultado*/
+		private VarInfo multString(String s, int n){
+			if(n<0)
+				return new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
+			else{
+				String f="";
+				for(int i=0;i<n;i++)
+					f+=s;
+				return new VarInfo(VarInfo.STRING_TYPE,f);
+			}
+		}
+		
+		/*Si i1 e i2 son un error, los combina y los devuelve como un error nuevo, si no, devuelve el que era un error*/
+		private VarInfo handleError(VarInfo i1, VarInfo i2){
+			VarInfo r=null;
+			if(i1.getType()==VarInfo.ERROR && i2.getType()==VarInfo.ERROR)
+				r= new VarInfo(VarInfo.ERROR, ((String) i1.getContent()) + "; " + ((String) i2.getContent()));
+			else if(i1.getType()==VarInfo.ERROR)
+				r= i1;
+			else
+				r= i2;
+			return r;
+		}
+		
+		/*Divide un número entre otro y devuelve un objeto VarInfo con el resultado, teniendo en cuenta la posibilidad de error al dividir entre 0*/
+		private VarInfo divide(Number i1, Number i2, int resultType){
+			if(resultType==VarInfo.FLOAT_TYPE)
+				return new VarInfo(resultType, i1.doubleValue()/i2.doubleValue());
+			else if(resultType==VarInfo.INT_TYPE){
+				if(i2.intValue()==0)
+					return new VarInfo(VarInfo.ERROR, "División entre 0 en enteros");
+				else
+					return new VarInfo(resultType, i1.intValue()/i1.intValue());
+			}
+			else
+				return new VarInfo(VarInfo.ERROR, "Error desconocido");
+		}
+		/*Aplica la operación módulo entre los números entrantes y devuelve un objeto VarInfo con el resultado, teniendo en cuenta la posibilidad de error al dividir entre 0*/
+		private VarInfo module(Number i1, Number i2, int resultType){
+			if(i2.doubleValue()!=0){
+				if(resultType==VarInfo.FLOAT_TYPE)
+					return new VarInfo(resultType, i1.doubleValue()%i2.doubleValue());
+				else if(resultType==VarInfo.INT_TYPE){
+					return new VarInfo(resultType, i1.intValue()/i1.intValue());
+				}
+				else
+					return new VarInfo(VarInfo.ERROR, "Error desconocido");
+			}
+			else
+				return new VarInfo(VarInfo.ERROR, "División entre 0 en operación módulo");
 		}
 
 	public rubyParser(TokenStream input) {
@@ -146,7 +217,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(38);
+			setState(86);
 			expression_list(0);
 			}
 		}
@@ -201,13 +272,13 @@ public class rubyParser extends Parser {
 			enterOuterAlt(_localctx, 1);
 			{
 			{
-			setState(41);
+			setState(89);
 			expression();
-			setState(42);
+			setState(90);
 			terminator(0);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(50);
+			setState(98);
 			_errHandler.sync(this);
 			_alt = getInterpreter().adaptivePredict(_input,0,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
@@ -218,16 +289,16 @@ public class rubyParser extends Parser {
 					{
 					_localctx = new Expression_listContext(_parentctx, _parentState);
 					pushNewRecursionContext(_localctx, _startState, RULE_expression_list);
-					setState(44);
+					setState(92);
 					if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
-					setState(45);
+					setState(93);
 					expression();
-					setState(46);
+					setState(94);
 					terminator(0);
 					}
 					} 
 				}
-				setState(52);
+				setState(100);
 				_errHandler.sync(this);
 				_alt = getInterpreter().adaptivePredict(_input,0,_ctx);
 			}
@@ -246,8 +317,29 @@ public class rubyParser extends Parser {
 
 	public static class ExpressionContext extends ParserRuleContext {
 		public RvalueContext rvalue;
+		public Function_definitionContext function_definition() {
+			return getRuleContext(Function_definitionContext.class,0);
+		}
+		public Require_blockContext require_block() {
+			return getRuleContext(Require_blockContext.class,0);
+		}
+		public If_statementContext if_statement() {
+			return getRuleContext(If_statementContext.class,0);
+		}
+		public Unless_statementContext unless_statement() {
+			return getRuleContext(Unless_statementContext.class,0);
+		}
 		public RvalueContext rvalue() {
 			return getRuleContext(RvalueContext.class,0);
+		}
+		public Return_statementContext return_statement() {
+			return getRuleContext(Return_statementContext.class,0);
+		}
+		public While_statementContext while_statement() {
+			return getRuleContext(While_statementContext.class,0);
+		}
+		public For_statementContext for_statement() {
+			return getRuleContext(For_statementContext.class,0);
 		}
 		public ExpressionContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -267,11 +359,1606 @@ public class rubyParser extends Parser {
 		ExpressionContext _localctx = new ExpressionContext(_ctx, getState());
 		enterRule(_localctx, 4, RULE_expression);
 		try {
+			setState(111);
+			_errHandler.sync(this);
+			switch (_input.LA(1)) {
+			case DEF:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(101);
+				function_definition();
+				}
+				break;
+			case REQUIRE:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(102);
+				require_block();
+				}
+				break;
+			case IF:
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(103);
+				if_statement();
+				}
+				break;
+			case UNLESS:
+				enterOuterAlt(_localctx, 4);
+				{
+				setState(104);
+				unless_statement();
+				}
+				break;
+			case LITERAL:
+			case TRUE:
+			case FALSE:
+			case NOT:
+			case LEFT_RBRACKET:
+			case NIL:
+			case INT:
+			case FLOAT:
+			case ID:
+			case ID_GLOBAL:
+				enterOuterAlt(_localctx, 5);
+				{
+				setState(105);
+				((ExpressionContext)_localctx).rvalue = rvalue(0);
+				System.out.println((((ExpressionContext)_localctx).rvalue!=null?_input.getText(((ExpressionContext)_localctx).rvalue.start,((ExpressionContext)_localctx).rvalue.stop):null)+" -> "+((ExpressionContext)_localctx).rvalue.info);
+				}
+				break;
+			case RETURN:
+				enterOuterAlt(_localctx, 6);
+				{
+				setState(108);
+				return_statement();
+				}
+				break;
+			case WHILE:
+				enterOuterAlt(_localctx, 7);
+				{
+				setState(109);
+				while_statement();
+				}
+				break;
+			case FOR:
+				enterOuterAlt(_localctx, 8);
+				{
+				setState(110);
+				for_statement();
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Require_blockContext extends ParserRuleContext {
+		public TerminalNode REQUIRE() { return getToken(rubyParser.REQUIRE, 0); }
+		public Literal_tContext literal_t() {
+			return getRuleContext(Literal_tContext.class,0);
+		}
+		public Require_blockContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_require_block; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterRequire_block(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitRequire_block(this);
+		}
+	}
+
+	public final Require_blockContext require_block() throws RecognitionException {
+		Require_blockContext _localctx = new Require_blockContext(_ctx, getState());
+		enterRule(_localctx, 6, RULE_require_block);
+		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(53);
-			((ExpressionContext)_localctx).rvalue = rvalue(0);
-			System.out.println((((ExpressionContext)_localctx).rvalue!=null?_input.getText(((ExpressionContext)_localctx).rvalue.start,((ExpressionContext)_localctx).rvalue.stop):null)+" -> "+((ExpressionContext)_localctx).rvalue.info);
+			setState(113);
+			match(REQUIRE);
+			setState(114);
+			literal_t();
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_definitionContext extends ParserRuleContext {
+		public Function_definition_headerContext function_definition_header() {
+			return getRuleContext(Function_definition_headerContext.class,0);
+		}
+		public Function_definition_bodyContext function_definition_body() {
+			return getRuleContext(Function_definition_bodyContext.class,0);
+		}
+		public TerminalNode END() { return getToken(rubyParser.END, 0); }
+		public Function_definitionContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_definition; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_definition(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_definition(this);
+		}
+	}
+
+	public final Function_definitionContext function_definition() throws RecognitionException {
+		Function_definitionContext _localctx = new Function_definitionContext(_ctx, getState());
+		enterRule(_localctx, 8, RULE_function_definition);
+		try {
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(116);
+			function_definition_header();
+			setState(117);
+			function_definition_body();
+			setState(118);
+			match(END);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_definition_bodyContext extends ParserRuleContext {
+		public Expression_listContext expression_list() {
+			return getRuleContext(Expression_listContext.class,0);
+		}
+		public Function_definition_bodyContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_definition_body; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_definition_body(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_definition_body(this);
+		}
+	}
+
+	public final Function_definition_bodyContext function_definition_body() throws RecognitionException {
+		Function_definition_bodyContext _localctx = new Function_definition_bodyContext(_ctx, getState());
+		enterRule(_localctx, 10, RULE_function_definition_body);
+		try {
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(120);
+			expression_list(0);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_definition_headerContext extends ParserRuleContext {
+		public TerminalNode DEF() { return getToken(rubyParser.DEF, 0); }
+		public Function_nameContext function_name() {
+			return getRuleContext(Function_nameContext.class,0);
+		}
+		public CrlfContext crlf() {
+			return getRuleContext(CrlfContext.class,0);
+		}
+		public Function_definition_paramsContext function_definition_params() {
+			return getRuleContext(Function_definition_paramsContext.class,0);
+		}
+		public Function_definition_headerContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_definition_header; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_definition_header(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_definition_header(this);
+		}
+	}
+
+	public final Function_definition_headerContext function_definition_header() throws RecognitionException {
+		Function_definition_headerContext _localctx = new Function_definition_headerContext(_ctx, getState());
+		enterRule(_localctx, 12, RULE_function_definition_header);
+		try {
+			setState(131);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,2,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(122);
+				match(DEF);
+				setState(123);
+				function_name();
+				setState(124);
+				crlf();
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(126);
+				match(DEF);
+				setState(127);
+				function_name();
+				setState(128);
+				function_definition_params();
+				setState(129);
+				crlf();
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_nameContext extends ParserRuleContext {
+		public Id_functionContext id_function() {
+			return getRuleContext(Id_functionContext.class,0);
+		}
+		public IdContext id() {
+			return getRuleContext(IdContext.class,0);
+		}
+		public Function_nameContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_name; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_name(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_name(this);
+		}
+	}
+
+	public final Function_nameContext function_name() throws RecognitionException {
+		Function_nameContext _localctx = new Function_nameContext(_ctx, getState());
+		enterRule(_localctx, 14, RULE_function_name);
+		try {
+			setState(135);
+			_errHandler.sync(this);
+			switch (_input.LA(1)) {
+			case ID_FUNCTION:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(133);
+				id_function();
+				}
+				break;
+			case ID:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(134);
+				id();
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_definition_paramsContext extends ParserRuleContext {
+		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
+		public Function_definition_params_listContext function_definition_params_list() {
+			return getRuleContext(Function_definition_params_listContext.class,0);
+		}
+		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
+		public Function_definition_paramsContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_definition_params; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_definition_params(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_definition_params(this);
+		}
+	}
+
+	public final Function_definition_paramsContext function_definition_params() throws RecognitionException {
+		Function_definition_paramsContext _localctx = new Function_definition_paramsContext(_ctx, getState());
+		enterRule(_localctx, 16, RULE_function_definition_params);
+		try {
+			setState(142);
+			_errHandler.sync(this);
+			switch (_input.LA(1)) {
+			case LEFT_RBRACKET:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(137);
+				match(LEFT_RBRACKET);
+				setState(138);
+				function_definition_params_list(0);
+				setState(139);
+				match(RIGHT_RBRACKET);
+				}
+				break;
+			case ID:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(141);
+				function_definition_params_list(0);
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_definition_params_listContext extends ParserRuleContext {
+		public IdContext id() {
+			return getRuleContext(IdContext.class,0);
+		}
+		public Function_definition_params_listContext function_definition_params_list() {
+			return getRuleContext(Function_definition_params_listContext.class,0);
+		}
+		public TerminalNode COMMA() { return getToken(rubyParser.COMMA, 0); }
+		public Function_definition_params_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_definition_params_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_definition_params_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_definition_params_list(this);
+		}
+	}
+
+	public final Function_definition_params_listContext function_definition_params_list() throws RecognitionException {
+		return function_definition_params_list(0);
+	}
+
+	private Function_definition_params_listContext function_definition_params_list(int _p) throws RecognitionException {
+		ParserRuleContext _parentctx = _ctx;
+		int _parentState = getState();
+		Function_definition_params_listContext _localctx = new Function_definition_params_listContext(_ctx, _parentState);
+		Function_definition_params_listContext _prevctx = _localctx;
+		int _startState = 18;
+		enterRecursionRule(_localctx, 18, RULE_function_definition_params_list, _p);
+		try {
+			int _alt;
+			enterOuterAlt(_localctx, 1);
+			{
+			{
+			setState(145);
+			id();
+			}
+			_ctx.stop = _input.LT(-1);
+			setState(152);
+			_errHandler.sync(this);
+			_alt = getInterpreter().adaptivePredict(_input,5,_ctx);
+			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
+				if ( _alt==1 ) {
+					if ( _parseListeners!=null ) triggerExitRuleEvent();
+					_prevctx = _localctx;
+					{
+					{
+					_localctx = new Function_definition_params_listContext(_parentctx, _parentState);
+					pushNewRecursionContext(_localctx, _startState, RULE_function_definition_params_list);
+					setState(147);
+					if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
+					setState(148);
+					match(COMMA);
+					setState(149);
+					id();
+					}
+					} 
+				}
+				setState(154);
+				_errHandler.sync(this);
+				_alt = getInterpreter().adaptivePredict(_input,5,_ctx);
+			}
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			unrollRecursionContexts(_parentctx);
+		}
+		return _localctx;
+	}
+
+	public static class Return_statementContext extends ParserRuleContext {
+		public TerminalNode RETURN() { return getToken(rubyParser.RETURN, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public Return_statementContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_return_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterReturn_statement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitReturn_statement(this);
+		}
+	}
+
+	public final Return_statementContext return_statement() throws RecognitionException {
+		Return_statementContext _localctx = new Return_statementContext(_ctx, getState());
+		enterRule(_localctx, 20, RULE_return_statement);
+		try {
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(155);
+			match(RETURN);
+			setState(156);
+			rvalue(0);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_callContext extends ParserRuleContext {
+		public Function_nameContext function_name() {
+			return getRuleContext(Function_nameContext.class,0);
+		}
+		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
+		public Function_call_param_listContext function_call_param_list() {
+			return getRuleContext(Function_call_param_listContext.class,0);
+		}
+		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
+		public Function_callContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_call; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_call(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_call(this);
+		}
+	}
+
+	public final Function_callContext function_call() throws RecognitionException {
+		Function_callContext _localctx = new Function_callContext(_ctx, getState());
+		enterRule(_localctx, 22, RULE_function_call);
+		try {
+			setState(170);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,6,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(158);
+				function_name();
+				setState(159);
+				match(LEFT_RBRACKET);
+				setState(160);
+				function_call_param_list();
+				setState(161);
+				match(RIGHT_RBRACKET);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(163);
+				function_name();
+				setState(164);
+				function_call_param_list();
+				}
+				break;
+			case 3:
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(166);
+				function_name();
+				setState(167);
+				match(LEFT_RBRACKET);
+				setState(168);
+				match(RIGHT_RBRACKET);
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_call_param_listContext extends ParserRuleContext {
+		public Function_call_paramsContext function_call_params() {
+			return getRuleContext(Function_call_paramsContext.class,0);
+		}
+		public Function_call_param_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_call_param_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_call_param_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_call_param_list(this);
+		}
+	}
+
+	public final Function_call_param_listContext function_call_param_list() throws RecognitionException {
+		Function_call_param_listContext _localctx = new Function_call_param_listContext(_ctx, getState());
+		enterRule(_localctx, 24, RULE_function_call_param_list);
+		try {
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(172);
+			function_call_params(0);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Function_call_paramsContext extends ParserRuleContext {
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public Function_call_paramsContext function_call_params() {
+			return getRuleContext(Function_call_paramsContext.class,0);
+		}
+		public TerminalNode COMMA() { return getToken(rubyParser.COMMA, 0); }
+		public Function_call_paramsContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_function_call_params; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFunction_call_params(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFunction_call_params(this);
+		}
+	}
+
+	public final Function_call_paramsContext function_call_params() throws RecognitionException {
+		return function_call_params(0);
+	}
+
+	private Function_call_paramsContext function_call_params(int _p) throws RecognitionException {
+		ParserRuleContext _parentctx = _ctx;
+		int _parentState = getState();
+		Function_call_paramsContext _localctx = new Function_call_paramsContext(_ctx, _parentState);
+		Function_call_paramsContext _prevctx = _localctx;
+		int _startState = 26;
+		enterRecursionRule(_localctx, 26, RULE_function_call_params, _p);
+		try {
+			int _alt;
+			enterOuterAlt(_localctx, 1);
+			{
+			{
+			setState(175);
+			rvalue(0);
+			}
+			_ctx.stop = _input.LT(-1);
+			setState(182);
+			_errHandler.sync(this);
+			_alt = getInterpreter().adaptivePredict(_input,7,_ctx);
+			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
+				if ( _alt==1 ) {
+					if ( _parseListeners!=null ) triggerExitRuleEvent();
+					_prevctx = _localctx;
+					{
+					{
+					_localctx = new Function_call_paramsContext(_parentctx, _parentState);
+					pushNewRecursionContext(_localctx, _startState, RULE_function_call_params);
+					setState(177);
+					if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
+					setState(178);
+					match(COMMA);
+					setState(179);
+					rvalue(0);
+					}
+					} 
+				}
+				setState(184);
+				_errHandler.sync(this);
+				_alt = getInterpreter().adaptivePredict(_input,7,_ctx);
+			}
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			unrollRecursionContexts(_parentctx);
+		}
+		return _localctx;
+	}
+
+	public static class If_elsif_statementContext extends ParserRuleContext {
+		public TerminalNode ELSIF() { return getToken(rubyParser.ELSIF, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public List<CrlfContext> crlf() {
+			return getRuleContexts(CrlfContext.class);
+		}
+		public CrlfContext crlf(int i) {
+			return getRuleContext(CrlfContext.class,i);
+		}
+		public List<Expression_listContext> expression_list() {
+			return getRuleContexts(Expression_listContext.class);
+		}
+		public Expression_listContext expression_list(int i) {
+			return getRuleContext(Expression_listContext.class,i);
+		}
+		public TerminalNode ELSE() { return getToken(rubyParser.ELSE, 0); }
+		public If_elsif_statementContext if_elsif_statement() {
+			return getRuleContext(If_elsif_statementContext.class,0);
+		}
+		public If_elsif_statementContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_if_elsif_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterIf_elsif_statement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitIf_elsif_statement(this);
+		}
+	}
+
+	public final If_elsif_statementContext if_elsif_statement() throws RecognitionException {
+		If_elsif_statementContext _localctx = new If_elsif_statementContext(_ctx, getState());
+		enterRule(_localctx, 28, RULE_if_elsif_statement);
+		try {
+			setState(204);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,8,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(185);
+				match(ELSIF);
+				setState(186);
+				rvalue(0);
+				setState(187);
+				crlf();
+				setState(188);
+				expression_list(0);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(190);
+				match(ELSIF);
+				setState(191);
+				rvalue(0);
+				setState(192);
+				crlf();
+				setState(193);
+				expression_list(0);
+				setState(194);
+				match(ELSE);
+				setState(195);
+				crlf();
+				setState(196);
+				expression_list(0);
+				}
+				break;
+			case 3:
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(198);
+				match(ELSIF);
+				setState(199);
+				rvalue(0);
+				setState(200);
+				crlf();
+				setState(201);
+				expression_list(0);
+				setState(202);
+				if_elsif_statement();
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class If_statementContext extends ParserRuleContext {
+		public TerminalNode IF() { return getToken(rubyParser.IF, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public List<CrlfContext> crlf() {
+			return getRuleContexts(CrlfContext.class);
+		}
+		public CrlfContext crlf(int i) {
+			return getRuleContext(CrlfContext.class,i);
+		}
+		public List<Expression_listContext> expression_list() {
+			return getRuleContexts(Expression_listContext.class);
+		}
+		public Expression_listContext expression_list(int i) {
+			return getRuleContext(Expression_listContext.class,i);
+		}
+		public TerminalNode END() { return getToken(rubyParser.END, 0); }
+		public TerminalNode THEN() { return getToken(rubyParser.THEN, 0); }
+		public TerminalNode ELSE() { return getToken(rubyParser.ELSE, 0); }
+		public If_elsif_statementContext if_elsif_statement() {
+			return getRuleContext(If_elsif_statementContext.class,0);
+		}
+		public If_statementContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_if_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterIf_statement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitIf_statement(this);
+		}
+	}
+
+	public final If_statementContext if_statement() throws RecognitionException {
+		If_statementContext _localctx = new If_statementContext(_ctx, getState());
+		enterRule(_localctx, 30, RULE_if_statement);
+		try {
+			setState(242);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,9,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(206);
+				match(IF);
+				setState(207);
+				rvalue(0);
+				setState(208);
+				crlf();
+				setState(209);
+				expression_list(0);
+				setState(210);
+				match(END);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(212);
+				match(IF);
+				setState(213);
+				rvalue(0);
+				setState(214);
+				match(THEN);
+				setState(215);
+				expression_list(0);
+				setState(216);
+				match(END);
+				}
+				break;
+			case 3:
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(218);
+				match(IF);
+				setState(219);
+				rvalue(0);
+				setState(220);
+				crlf();
+				setState(221);
+				expression_list(0);
+				setState(222);
+				match(ELSE);
+				setState(223);
+				crlf();
+				setState(224);
+				expression_list(0);
+				setState(225);
+				match(END);
+				}
+				break;
+			case 4:
+				enterOuterAlt(_localctx, 4);
+				{
+				setState(227);
+				match(IF);
+				setState(228);
+				rvalue(0);
+				setState(229);
+				match(THEN);
+				setState(230);
+				expression_list(0);
+				setState(231);
+				match(ELSE);
+				setState(232);
+				expression_list(0);
+				setState(233);
+				match(END);
+				}
+				break;
+			case 5:
+				enterOuterAlt(_localctx, 5);
+				{
+				setState(235);
+				match(IF);
+				setState(236);
+				rvalue(0);
+				setState(237);
+				crlf();
+				setState(238);
+				expression_list(0);
+				setState(239);
+				if_elsif_statement();
+				setState(240);
+				match(END);
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Unless_statementContext extends ParserRuleContext {
+		public TerminalNode UNLESS() { return getToken(rubyParser.UNLESS, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public CrlfContext crlf() {
+			return getRuleContext(CrlfContext.class,0);
+		}
+		public Expression_listContext expression_list() {
+			return getRuleContext(Expression_listContext.class,0);
+		}
+		public TerminalNode END() { return getToken(rubyParser.END, 0); }
+		public Unless_statementContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_unless_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterUnless_statement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitUnless_statement(this);
+		}
+	}
+
+	public final Unless_statementContext unless_statement() throws RecognitionException {
+		Unless_statementContext _localctx = new Unless_statementContext(_ctx, getState());
+		enterRule(_localctx, 32, RULE_unless_statement);
+		try {
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(244);
+			match(UNLESS);
+			setState(245);
+			rvalue(0);
+			setState(246);
+			crlf();
+			setState(247);
+			expression_list(0);
+			setState(248);
+			match(END);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class While_statementContext extends ParserRuleContext {
+		public TerminalNode WHILE() { return getToken(rubyParser.WHILE, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public CrlfContext crlf() {
+			return getRuleContext(CrlfContext.class,0);
+		}
+		public While_expression_listContext while_expression_list() {
+			return getRuleContext(While_expression_listContext.class,0);
+		}
+		public TerminalNode END() { return getToken(rubyParser.END, 0); }
+		public While_statementContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_while_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterWhile_statement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitWhile_statement(this);
+		}
+	}
+
+	public final While_statementContext while_statement() throws RecognitionException {
+		While_statementContext _localctx = new While_statementContext(_ctx, getState());
+		enterRule(_localctx, 34, RULE_while_statement);
+		try {
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(250);
+			match(WHILE);
+			setState(251);
+			rvalue(0);
+			setState(252);
+			crlf();
+			setState(253);
+			while_expression_list(0);
+			setState(254);
+			match(END);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class While_expression_listContext extends ParserRuleContext {
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public TerminatorContext terminator() {
+			return getRuleContext(TerminatorContext.class,0);
+		}
+		public TerminalNode RETRY() { return getToken(rubyParser.RETRY, 0); }
+		public TerminalNode BREAK() { return getToken(rubyParser.BREAK, 0); }
+		public While_expression_listContext while_expression_list() {
+			return getRuleContext(While_expression_listContext.class,0);
+		}
+		public While_expression_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_while_expression_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterWhile_expression_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitWhile_expression_list(this);
+		}
+	}
+
+	public final While_expression_listContext while_expression_list() throws RecognitionException {
+		return while_expression_list(0);
+	}
+
+	private While_expression_listContext while_expression_list(int _p) throws RecognitionException {
+		ParserRuleContext _parentctx = _ctx;
+		int _parentState = getState();
+		While_expression_listContext _localctx = new While_expression_listContext(_ctx, _parentState);
+		While_expression_listContext _prevctx = _localctx;
+		int _startState = 36;
+		enterRecursionRule(_localctx, 36, RULE_while_expression_list, _p);
+		try {
+			int _alt;
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(264);
+			_errHandler.sync(this);
+			switch (_input.LA(1)) {
+			case LITERAL:
+			case REQUIRE:
+			case DEF:
+			case RETURN:
+			case IF:
+			case UNLESS:
+			case WHILE:
+			case FOR:
+			case TRUE:
+			case FALSE:
+			case NOT:
+			case LEFT_RBRACKET:
+			case NIL:
+			case INT:
+			case FLOAT:
+			case ID:
+			case ID_GLOBAL:
+				{
+				setState(257);
+				expression();
+				setState(258);
+				terminator(0);
+				}
+				break;
+			case RETRY:
+				{
+				setState(260);
+				match(RETRY);
+				setState(261);
+				terminator(0);
+				}
+				break;
+			case BREAK:
+				{
+				setState(262);
+				match(BREAK);
+				setState(263);
+				terminator(0);
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
+			}
+			_ctx.stop = _input.LT(-1);
+			setState(278);
+			_errHandler.sync(this);
+			_alt = getInterpreter().adaptivePredict(_input,12,_ctx);
+			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
+				if ( _alt==1 ) {
+					if ( _parseListeners!=null ) triggerExitRuleEvent();
+					_prevctx = _localctx;
+					{
+					setState(276);
+					_errHandler.sync(this);
+					switch ( getInterpreter().adaptivePredict(_input,11,_ctx) ) {
+					case 1:
+						{
+						_localctx = new While_expression_listContext(_parentctx, _parentState);
+						pushNewRecursionContext(_localctx, _startState, RULE_while_expression_list);
+						setState(266);
+						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
+						setState(267);
+						expression();
+						setState(268);
+						terminator(0);
+						}
+						break;
+					case 2:
+						{
+						_localctx = new While_expression_listContext(_parentctx, _parentState);
+						pushNewRecursionContext(_localctx, _startState, RULE_while_expression_list);
+						setState(270);
+						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
+						setState(271);
+						match(RETRY);
+						setState(272);
+						terminator(0);
+						}
+						break;
+					case 3:
+						{
+						_localctx = new While_expression_listContext(_parentctx, _parentState);
+						pushNewRecursionContext(_localctx, _startState, RULE_while_expression_list);
+						setState(273);
+						if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
+						setState(274);
+						match(BREAK);
+						setState(275);
+						terminator(0);
+						}
+						break;
+					}
+					} 
+				}
+				setState(280);
+				_errHandler.sync(this);
+				_alt = getInterpreter().adaptivePredict(_input,12,_ctx);
+			}
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			unrollRecursionContexts(_parentctx);
+		}
+		return _localctx;
+	}
+
+	public static class For_statementContext extends ParserRuleContext {
+		public TerminalNode FOR() { return getToken(rubyParser.FOR, 0); }
+		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
+		public List<ExpressionContext> expression() {
+			return getRuleContexts(ExpressionContext.class);
+		}
+		public ExpressionContext expression(int i) {
+			return getRuleContext(ExpressionContext.class,i);
+		}
+		public List<TerminalNode> SEMICOLON() { return getTokens(rubyParser.SEMICOLON); }
+		public TerminalNode SEMICOLON(int i) {
+			return getToken(rubyParser.SEMICOLON, i);
+		}
+		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
+		public CrlfContext crlf() {
+			return getRuleContext(CrlfContext.class,0);
+		}
+		public For_expression_listContext for_expression_list() {
+			return getRuleContext(For_expression_listContext.class,0);
+		}
+		public TerminalNode END() { return getToken(rubyParser.END, 0); }
+		public For_statementContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_for_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFor_statement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFor_statement(this);
+		}
+	}
+
+	public final For_statementContext for_statement() throws RecognitionException {
+		For_statementContext _localctx = new For_statementContext(_ctx, getState());
+		enterRule(_localctx, 38, RULE_for_statement);
+		try {
+			setState(303);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,13,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(281);
+				match(FOR);
+				setState(282);
+				match(LEFT_RBRACKET);
+				setState(283);
+				expression();
+				setState(284);
+				match(SEMICOLON);
+				setState(285);
+				expression();
+				setState(286);
+				match(SEMICOLON);
+				setState(287);
+				expression();
+				setState(288);
+				match(RIGHT_RBRACKET);
+				setState(289);
+				crlf();
+				setState(290);
+				for_expression_list(0);
+				setState(291);
+				match(END);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(293);
+				match(FOR);
+				setState(294);
+				expression();
+				setState(295);
+				match(SEMICOLON);
+				setState(296);
+				expression();
+				setState(297);
+				match(SEMICOLON);
+				setState(298);
+				expression();
+				setState(299);
+				crlf();
+				setState(300);
+				for_expression_list(0);
+				setState(301);
+				match(END);
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class For_expression_listContext extends ParserRuleContext {
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public TerminatorContext terminator() {
+			return getRuleContext(TerminatorContext.class,0);
+		}
+		public TerminalNode RETRY() { return getToken(rubyParser.RETRY, 0); }
+		public TerminalNode BREAK() { return getToken(rubyParser.BREAK, 0); }
+		public For_expression_listContext for_expression_list() {
+			return getRuleContext(For_expression_listContext.class,0);
+		}
+		public For_expression_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_for_expression_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterFor_expression_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitFor_expression_list(this);
+		}
+	}
+
+	public final For_expression_listContext for_expression_list() throws RecognitionException {
+		return for_expression_list(0);
+	}
+
+	private For_expression_listContext for_expression_list(int _p) throws RecognitionException {
+		ParserRuleContext _parentctx = _ctx;
+		int _parentState = getState();
+		For_expression_listContext _localctx = new For_expression_listContext(_ctx, _parentState);
+		For_expression_listContext _prevctx = _localctx;
+		int _startState = 40;
+		enterRecursionRule(_localctx, 40, RULE_for_expression_list, _p);
+		try {
+			int _alt;
+			enterOuterAlt(_localctx, 1);
+			{
+			setState(313);
+			_errHandler.sync(this);
+			switch (_input.LA(1)) {
+			case LITERAL:
+			case REQUIRE:
+			case DEF:
+			case RETURN:
+			case IF:
+			case UNLESS:
+			case WHILE:
+			case FOR:
+			case TRUE:
+			case FALSE:
+			case NOT:
+			case LEFT_RBRACKET:
+			case NIL:
+			case INT:
+			case FLOAT:
+			case ID:
+			case ID_GLOBAL:
+				{
+				setState(306);
+				expression();
+				setState(307);
+				terminator(0);
+				}
+				break;
+			case RETRY:
+				{
+				setState(309);
+				match(RETRY);
+				setState(310);
+				terminator(0);
+				}
+				break;
+			case BREAK:
+				{
+				setState(311);
+				match(BREAK);
+				setState(312);
+				terminator(0);
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
+			}
+			_ctx.stop = _input.LT(-1);
+			setState(327);
+			_errHandler.sync(this);
+			_alt = getInterpreter().adaptivePredict(_input,16,_ctx);
+			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
+				if ( _alt==1 ) {
+					if ( _parseListeners!=null ) triggerExitRuleEvent();
+					_prevctx = _localctx;
+					{
+					setState(325);
+					_errHandler.sync(this);
+					switch ( getInterpreter().adaptivePredict(_input,15,_ctx) ) {
+					case 1:
+						{
+						_localctx = new For_expression_listContext(_parentctx, _parentState);
+						pushNewRecursionContext(_localctx, _startState, RULE_for_expression_list);
+						setState(315);
+						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
+						setState(316);
+						expression();
+						setState(317);
+						terminator(0);
+						}
+						break;
+					case 2:
+						{
+						_localctx = new For_expression_listContext(_parentctx, _parentState);
+						pushNewRecursionContext(_localctx, _startState, RULE_for_expression_list);
+						setState(319);
+						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
+						setState(320);
+						match(RETRY);
+						setState(321);
+						terminator(0);
+						}
+						break;
+					case 3:
+						{
+						_localctx = new For_expression_listContext(_parentctx, _parentState);
+						pushNewRecursionContext(_localctx, _startState, RULE_for_expression_list);
+						setState(322);
+						if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
+						setState(323);
+						match(BREAK);
+						setState(324);
+						terminator(0);
+						}
+						break;
+					}
+					} 
+				}
+				setState(329);
+				_errHandler.sync(this);
+				_alt = getInterpreter().adaptivePredict(_input,16,_ctx);
+			}
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			unrollRecursionContexts(_parentctx);
+		}
+		return _localctx;
+	}
+
+	public static class When_listContext extends ParserRuleContext {
+		public TerminalNode WHEN() { return getToken(rubyParser.WHEN, 0); }
+		public Rvalue_listContext rvalue_list() {
+			return getRuleContext(Rvalue_listContext.class,0);
+		}
+		public TerminalNode THEN() { return getToken(rubyParser.THEN, 0); }
+		public Expression_listContext expression_list() {
+			return getRuleContext(Expression_listContext.class,0);
+		}
+		public When_listContext when_list() {
+			return getRuleContext(When_listContext.class,0);
+		}
+		public When_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_when_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterWhen_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitWhen_list(this);
+		}
+	}
+
+	public final When_listContext when_list() throws RecognitionException {
+		When_listContext _localctx = new When_listContext(_ctx, getState());
+		enterRule(_localctx, 42, RULE_when_list);
+		try {
+			setState(341);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,17,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(330);
+				match(WHEN);
+				setState(331);
+				rvalue_list();
+				setState(332);
+				match(THEN);
+				setState(333);
+				expression_list(0);
+				setState(334);
+				when_list();
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(336);
+				match(WHEN);
+				setState(337);
+				rvalue_list();
+				setState(338);
+				match(THEN);
+				setState(339);
+				expression_list(0);
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Rvalue_listContext extends ParserRuleContext {
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public TerminalNode COMMA() { return getToken(rubyParser.COMMA, 0); }
+		public Rvalue_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_rvalue_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterRvalue_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitRvalue_list(this);
+		}
+	}
+
+	public final Rvalue_listContext rvalue_list() throws RecognitionException {
+		Rvalue_listContext _localctx = new Rvalue_listContext(_ctx, getState());
+		enterRule(_localctx, 44, RULE_rvalue_list);
+		try {
+			setState(347);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,18,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(343);
+				rvalue(0);
+				setState(344);
+				match(COMMA);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(346);
+				rvalue(0);
+				}
+				break;
 			}
 		}
 		catch (RecognitionException re) {
@@ -319,20 +2006,20 @@ public class rubyParser extends Parser {
 
 	public final AssignmentContext assignment() throws RecognitionException {
 		AssignmentContext _localctx = new AssignmentContext(_ctx, getState());
-		enterRule(_localctx, 6, RULE_assignment);
+		enterRule(_localctx, 46, RULE_assignment);
 		int _la;
 		try {
-			setState(65);
+			setState(358);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,1,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,19,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(56);
+				setState(349);
 				((AssignmentContext)_localctx).lvalue = lvalue();
-				setState(57);
+				setState(350);
 				match(ASSIGN);
-				setState(58);
+				setState(351);
 				((AssignmentContext)_localctx).rvalue = rvalue(0);
 				((AssignmentContext)_localctx).info = ((AssignmentContext)_localctx).rvalue.info;varTable.put((((AssignmentContext)_localctx).lvalue!=null?_input.getText(((AssignmentContext)_localctx).lvalue.start,((AssignmentContext)_localctx).lvalue.stop):null), ((AssignmentContext)_localctx).rvalue.info); System.out.println("Asignación a "+(((AssignmentContext)_localctx).lvalue!=null?_input.getText(((AssignmentContext)_localctx).lvalue.start,((AssignmentContext)_localctx).lvalue.stop):null)+" de ("+((AssignmentContext)_localctx).rvalue.info+")");
 				}
@@ -340,9 +2027,9 @@ public class rubyParser extends Parser {
 			case 2:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(61);
+				setState(354);
 				lvalue();
-				setState(62);
+				setState(355);
 				((AssignmentContext)_localctx).signo = _input.LT(1);
 				_la = _input.LA(1);
 				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << PLUS_ASSIGN) | (1L << MINUS_ASSIGN) | (1L << MUL_ASSIGN) | (1L << DIV_ASSIGN) | (1L << MOD_ASSIGN) | (1L << EXP_ASSIGN))) != 0)) ) {
@@ -353,8 +2040,304 @@ public class rubyParser extends Parser {
 					_errHandler.reportMatch(this);
 					consume();
 				}
-				setState(63);
+				setState(356);
 				rvalue(0);
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Array_assignmentContext extends ParserRuleContext {
+		public LvalueContext lvalue() {
+			return getRuleContext(LvalueContext.class,0);
+		}
+		public Array_definitionContext array_definition() {
+			return getRuleContext(Array_definitionContext.class,0);
+		}
+		public TerminalNode ASSIGN() { return getToken(rubyParser.ASSIGN, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public Array_assignmentContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_array_assignment; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterArray_assignment(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitArray_assignment(this);
+		}
+	}
+
+	public final Array_assignmentContext array_assignment() throws RecognitionException {
+		Array_assignmentContext _localctx = new Array_assignmentContext(_ctx, getState());
+		enterRule(_localctx, 48, RULE_array_assignment);
+		try {
+			setState(369);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,20,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(360);
+				lvalue();
+				setState(361);
+				array_definition();
+				setState(362);
+				match(ASSIGN);
+				setState(363);
+				rvalue(0);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(365);
+				lvalue();
+				setState(366);
+				match(ASSIGN);
+				setState(367);
+				array_definition();
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Array_definitionContext extends ParserRuleContext {
+		public TerminalNode LEFT_SBRACKET() { return getToken(rubyParser.LEFT_SBRACKET, 0); }
+		public Array_definition_elementsContext array_definition_elements() {
+			return getRuleContext(Array_definition_elementsContext.class,0);
+		}
+		public TerminalNode RIGHT_SBRACKET() { return getToken(rubyParser.RIGHT_SBRACKET, 0); }
+		public Array_definitionContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_array_definition; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterArray_definition(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitArray_definition(this);
+		}
+	}
+
+	public final Array_definitionContext array_definition() throws RecognitionException {
+		Array_definitionContext _localctx = new Array_definitionContext(_ctx, getState());
+		enterRule(_localctx, 50, RULE_array_definition);
+		try {
+			setState(377);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,21,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(371);
+				match(LEFT_SBRACKET);
+				setState(372);
+				array_definition_elements(0);
+				setState(373);
+				match(RIGHT_SBRACKET);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(375);
+				match(LEFT_SBRACKET);
+				setState(376);
+				match(RIGHT_SBRACKET);
+				}
+				break;
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			exitRule();
+		}
+		return _localctx;
+	}
+
+	public static class Array_definition_elementsContext extends ParserRuleContext {
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public Array_definition_elementsContext array_definition_elements() {
+			return getRuleContext(Array_definition_elementsContext.class,0);
+		}
+		public TerminalNode COMMA() { return getToken(rubyParser.COMMA, 0); }
+		public Array_definition_elementsContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_array_definition_elements; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterArray_definition_elements(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitArray_definition_elements(this);
+		}
+	}
+
+	public final Array_definition_elementsContext array_definition_elements() throws RecognitionException {
+		return array_definition_elements(0);
+	}
+
+	private Array_definition_elementsContext array_definition_elements(int _p) throws RecognitionException {
+		ParserRuleContext _parentctx = _ctx;
+		int _parentState = getState();
+		Array_definition_elementsContext _localctx = new Array_definition_elementsContext(_ctx, _parentState);
+		Array_definition_elementsContext _prevctx = _localctx;
+		int _startState = 52;
+		enterRecursionRule(_localctx, 52, RULE_array_definition_elements, _p);
+		try {
+			int _alt;
+			enterOuterAlt(_localctx, 1);
+			{
+			{
+			setState(380);
+			rvalue(0);
+			}
+			_ctx.stop = _input.LT(-1);
+			setState(387);
+			_errHandler.sync(this);
+			_alt = getInterpreter().adaptivePredict(_input,22,_ctx);
+			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
+				if ( _alt==1 ) {
+					if ( _parseListeners!=null ) triggerExitRuleEvent();
+					_prevctx = _localctx;
+					{
+					{
+					_localctx = new Array_definition_elementsContext(_parentctx, _parentState);
+					pushNewRecursionContext(_localctx, _startState, RULE_array_definition_elements);
+					setState(382);
+					if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
+					setState(383);
+					match(COMMA);
+					setState(384);
+					rvalue(0);
+					}
+					} 
+				}
+				setState(389);
+				_errHandler.sync(this);
+				_alt = getInterpreter().adaptivePredict(_input,22,_ctx);
+			}
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			_errHandler.reportError(this, re);
+			_errHandler.recover(this, re);
+		}
+		finally {
+			unrollRecursionContexts(_parentctx);
+		}
+		return _localctx;
+	}
+
+	public static class Array_selectorContext extends ParserRuleContext {
+		public IdContext id() {
+			return getRuleContext(IdContext.class,0);
+		}
+		public TerminalNode LEFT_SBRACKET() { return getToken(rubyParser.LEFT_SBRACKET, 0); }
+		public RvalueContext rvalue() {
+			return getRuleContext(RvalueContext.class,0);
+		}
+		public TerminalNode RIGHT_SBRACKET() { return getToken(rubyParser.RIGHT_SBRACKET, 0); }
+		public Id_globalContext id_global() {
+			return getRuleContext(Id_globalContext.class,0);
+		}
+		public Function_callContext function_call() {
+			return getRuleContext(Function_callContext.class,0);
+		}
+		public Array_selectorContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_array_selector; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).enterArray_selector(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof rubyListener ) ((rubyListener)listener).exitArray_selector(this);
+		}
+	}
+
+	public final Array_selectorContext array_selector() throws RecognitionException {
+		Array_selectorContext _localctx = new Array_selectorContext(_ctx, getState());
+		enterRule(_localctx, 54, RULE_array_selector);
+		try {
+			setState(405);
+			_errHandler.sync(this);
+			switch ( getInterpreter().adaptivePredict(_input,23,_ctx) ) {
+			case 1:
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(390);
+				id();
+				setState(391);
+				match(LEFT_SBRACKET);
+				setState(392);
+				rvalue(0);
+				setState(393);
+				match(RIGHT_SBRACKET);
+				}
+				break;
+			case 2:
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(395);
+				id_global();
+				setState(396);
+				match(LEFT_SBRACKET);
+				setState(397);
+				rvalue(0);
+				setState(398);
+				match(RIGHT_SBRACKET);
+				}
+				break;
+			case 3:
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(400);
+				function_call();
+				setState(401);
+				match(LEFT_SBRACKET);
+				setState(402);
+				rvalue(0);
+				setState(403);
+				match(RIGHT_SBRACKET);
 				}
 				break;
 			}
@@ -373,22 +2356,19 @@ public class rubyParser extends Parser {
 	public static class Int_resultContext extends ParserRuleContext {
 		public VarInfo info;
 		public Int_resultContext i1;
-		public Int_resultContext int_result;
 		public Int_tContext int_t;
 		public Int_resultContext i2;
 		public Token signo;
-		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
+		public Int_tContext int_t() {
+			return getRuleContext(Int_tContext.class,0);
+		}
+		public TerminalNode EXP() { return getToken(rubyParser.EXP, 0); }
 		public List<Int_resultContext> int_result() {
 			return getRuleContexts(Int_resultContext.class);
 		}
 		public Int_resultContext int_result(int i) {
 			return getRuleContext(Int_resultContext.class,i);
 		}
-		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
-		public Int_tContext int_t() {
-			return getRuleContext(Int_tContext.class,0);
-		}
-		public TerminalNode EXP() { return getToken(rubyParser.EXP, 0); }
 		public TerminalNode MUL() { return getToken(rubyParser.MUL, 0); }
 		public TerminalNode DIV() { return getToken(rubyParser.DIV, 0); }
 		public TerminalNode MOD() { return getToken(rubyParser.MOD, 0); }
@@ -417,68 +2397,45 @@ public class rubyParser extends Parser {
 		int _parentState = getState();
 		Int_resultContext _localctx = new Int_resultContext(_ctx, _parentState);
 		Int_resultContext _prevctx = _localctx;
-		int _startState = 8;
-		enterRecursionRule(_localctx, 8, RULE_int_result, _p);
+		int _startState = 56;
+		enterRecursionRule(_localctx, 56, RULE_int_result, _p);
 		int _la;
 		try {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(76);
-			_errHandler.sync(this);
-			switch (_input.LA(1)) {
-			case LEFT_RBRACKET:
-				{
-				setState(68);
-				match(LEFT_RBRACKET);
-				setState(69);
-				((Int_resultContext)_localctx).int_result = int_result(0);
-				setState(70);
-				match(RIGHT_RBRACKET);
-				((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).int_result.info;
-				}
-				break;
-			case INT:
-				{
-				setState(73);
-				((Int_resultContext)_localctx).int_t = int_t();
-				((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,((Int_resultContext)_localctx).int_t.value);
-				}
-				break;
-			default:
-				throw new NoViableAltException(this);
+			{
+			setState(408);
+			((Int_resultContext)_localctx).int_t = int_t();
+			((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,((Int_resultContext)_localctx).int_t.value);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(95);
+			setState(428);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,4,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,25,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(93);
+					setState(426);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,3,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,24,_ctx) ) {
 					case 1:
 						{
 						_localctx = new Int_resultContext(_parentctx, _parentState);
 						_localctx.i1 = _prevctx;
 						_localctx.i1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_int_result);
-						setState(78);
-						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
-						setState(79);
+						setState(411);
+						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
+						setState(412);
 						match(EXP);
-						setState(80);
-						((Int_resultContext)_localctx).i2 = ((Int_resultContext)_localctx).int_result = int_result(6);
+						setState(413);
+						((Int_resultContext)_localctx).i2 = int_result(5);
 
-						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR && ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Int_resultContext)_localctx).i1.info.getContent()) + "; " + ((String) ((Int_resultContext)_localctx).i2.info.getContent()));
-						          	else if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).i1.info;
-						          	else if(((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).i2.info;
+						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
+						          		((Int_resultContext)_localctx).info = handleError(((Int_resultContext)_localctx).i1.info,((Int_resultContext)_localctx).i2.info);
 						          	else 
 						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE, (int) Math.pow((int)((Int_resultContext)_localctx).i1.info.getContent(),(int)((Int_resultContext)_localctx).i2.info.getContent()));
 						          
@@ -490,9 +2447,9 @@ public class rubyParser extends Parser {
 						_localctx.i1 = _prevctx;
 						_localctx.i1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_int_result);
-						setState(83);
-						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-						setState(84);
+						setState(416);
+						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
+						setState(417);
 						((Int_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -503,25 +2460,17 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(85);
-						((Int_resultContext)_localctx).i2 = ((Int_resultContext)_localctx).int_result = int_result(5);
+						setState(418);
+						((Int_resultContext)_localctx).i2 = int_result(4);
 
-						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR && ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Int_resultContext)_localctx).i1.info.getContent()) + "; " + ((String) ((Int_resultContext)_localctx).i2.info.getContent()));
-						          	else if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).i1.info;
-						          	else if(((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).i2.info;
+						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
+						          		((Int_resultContext)_localctx).info = handleError(((Int_resultContext)_localctx).i1.info,((Int_resultContext)_localctx).i2.info);
 						          	else if(getVocabulary().getSymbolicName((((Int_resultContext)_localctx).signo!=null?((Int_resultContext)_localctx).signo.getType():0)).equals("MUL"))
 						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Int_resultContext)_localctx).i1.info.getContent()*(Integer)((Int_resultContext)_localctx).i2.info.getContent());
-						          	else{
-						          		if((Integer)((Int_resultContext)_localctx).i2.info.getContent()==0)
-						          			((Int_resultContext)_localctx).info =  new VarInfo(VarInfo.ERROR,"División por 0");
-						          		else if(getVocabulary().getSymbolicName((((Int_resultContext)_localctx).signo!=null?((Int_resultContext)_localctx).signo.getType():0)).equals("DIV"))
-						          			((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Int_resultContext)_localctx).i1.info.getContent()/(Integer)((Int_resultContext)_localctx).i2.info.getContent());
-						          		else
-						          			((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Int_resultContext)_localctx).i1.info.getContent()%(Integer)((Int_resultContext)_localctx).i2.info.getContent());
-						          	}
+						          	else if(getVocabulary().getSymbolicName((((Int_resultContext)_localctx).signo!=null?((Int_resultContext)_localctx).signo.getType():0)).equals("DIV"))
+						          			((Int_resultContext)_localctx).info = divide((Number) ((Int_resultContext)_localctx).i1.info.getContent(),(Number) ((Int_resultContext)_localctx).i2.info.getContent(),VarInfo.INT_TYPE);
+						          	else
+						          			((Int_resultContext)_localctx).info = module((Number) ((Int_resultContext)_localctx).i1.info.getContent(),(Number) ((Int_resultContext)_localctx).i2.info.getContent(),VarInfo.INT_TYPE);
 						          
 						}
 						break;
@@ -531,9 +2480,9 @@ public class rubyParser extends Parser {
 						_localctx.i1 = _prevctx;
 						_localctx.i1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_int_result);
-						setState(88);
-						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-						setState(89);
+						setState(421);
+						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
+						setState(422);
 						((Int_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !(_la==PLUS || _la==MINUS) ) {
@@ -544,15 +2493,11 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(90);
-						((Int_resultContext)_localctx).i2 = ((Int_resultContext)_localctx).int_result = int_result(4);
+						setState(423);
+						((Int_resultContext)_localctx).i2 = int_result(3);
 
-						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR && ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Int_resultContext)_localctx).i1.info.getContent()) + "; " + ((String) ((Int_resultContext)_localctx).i2.info.getContent()));
-						          	else if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).i1.info;
-						          	else if(((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = ((Int_resultContext)_localctx).i2.info;
+						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
+						          		((Int_resultContext)_localctx).info = handleError(((Int_resultContext)_localctx).i1.info,((Int_resultContext)_localctx).i2.info);
 						          	else if(getVocabulary().getSymbolicName((((Int_resultContext)_localctx).signo!=null?((Int_resultContext)_localctx).signo.getType():0)).equals("PLUS"))
 						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Int_resultContext)_localctx).i1.info.getContent()+(Integer)((Int_resultContext)_localctx).i2.info.getContent());
 						          	else{
@@ -564,9 +2509,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(97);
+				setState(430);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,4,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,25,_ctx);
 			}
 			}
 		}
@@ -586,7 +2531,6 @@ public class rubyParser extends Parser {
 		public Float_resultContext f1;
 		public Int_resultContext i1;
 		public Float_resultContext f2;
-		public Float_resultContext float_result;
 		public Token signo;
 		public Float_tContext float_t;
 		public Int_resultContext i2;
@@ -605,8 +2549,6 @@ public class rubyParser extends Parser {
 		public TerminalNode MOD() { return getToken(rubyParser.MOD, 0); }
 		public TerminalNode PLUS() { return getToken(rubyParser.PLUS, 0); }
 		public TerminalNode MINUS() { return getToken(rubyParser.MINUS, 0); }
-		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
-		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
 		public Float_tContext float_t() {
 			return getRuleContext(Float_tContext.class,0);
 		}
@@ -633,31 +2575,27 @@ public class rubyParser extends Parser {
 		int _parentState = getState();
 		Float_resultContext _localctx = new Float_resultContext(_ctx, _parentState);
 		Float_resultContext _prevctx = _localctx;
-		int _startState = 10;
-		enterRecursionRule(_localctx, 10, RULE_float_result, _p);
+		int _startState = 58;
+		enterRecursionRule(_localctx, 58, RULE_float_result, _p);
 		int _la;
 		try {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(122);
+			setState(450);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,5,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,26,_ctx) ) {
 			case 1:
 				{
-				setState(99);
+				setState(432);
 				((Float_resultContext)_localctx).i1 = int_result(0);
-				setState(100);
+				setState(433);
 				match(EXP);
-				setState(101);
-				((Float_resultContext)_localctx).f2 = ((Float_resultContext)_localctx).float_result = float_result(10);
+				setState(434);
+				((Float_resultContext)_localctx).f2 = float_result(9);
 
-					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).i1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).f2.info.getContent()));
-					else if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).i1.info;
-					else if(((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f2.info;
+					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
+						((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).i1.info,((Float_resultContext)_localctx).f2.info);
 					else 
 						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((int)((Float_resultContext)_localctx).i1.info.getContent(),(double)((Float_resultContext)_localctx).f2.info.getContent()));
 
@@ -665,9 +2603,9 @@ public class rubyParser extends Parser {
 				break;
 			case 2:
 				{
-				setState(104);
+				setState(437);
 				((Float_resultContext)_localctx).i1 = int_result(0);
-				setState(105);
+				setState(438);
 				((Float_resultContext)_localctx).signo = _input.LT(1);
 				_la = _input.LA(1);
 				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -678,33 +2616,25 @@ public class rubyParser extends Parser {
 					_errHandler.reportMatch(this);
 					consume();
 				}
-				setState(106);
-				((Float_resultContext)_localctx).f2 = ((Float_resultContext)_localctx).float_result = float_result(7);
+				setState(439);
+				((Float_resultContext)_localctx).f2 = float_result(6);
 
-					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).i1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).f2.info.getContent()));
-					else if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).i1.info;
-					else if(((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f2.info;
+					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
+						((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).i1.info,((Float_resultContext)_localctx).f2.info);
 					else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("MUL"))
 						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,(Double) ((Float_resultContext)_localctx).i1.info.getContent()* (Double) ((Float_resultContext)_localctx).f2.info.getContent());
-					else{
-						if((Double)((Float_resultContext)_localctx).f2.info.getContent()==0)
-							((Float_resultContext)_localctx).info =  new VarInfo(VarInfo.ERROR,"División por 0");
-						else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("DIV"))
-							((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Float_resultContext)_localctx).i1.info.getContent()/(Double)((Float_resultContext)_localctx).f2.info.getContent());
-						else
-							((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Float_resultContext)_localctx).i1.info.getContent()%(Double)((Float_resultContext)_localctx).f2.info.getContent());
-					}
+					else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("DIV"))
+						((Float_resultContext)_localctx).info = divide((Number) ((Float_resultContext)_localctx).i1.info.getContent(),(Number) ((Float_resultContext)_localctx).i2.info.getContent(),VarInfo.FLOAT_TYPE);
+					else
+						((Float_resultContext)_localctx).info = module((Number) ((Float_resultContext)_localctx).i1.info.getContent(),(Number) ((Float_resultContext)_localctx).i2.info.getContent(),VarInfo.FLOAT_TYPE);
 
 				}
 				break;
 			case 3:
 				{
-				setState(109);
+				setState(442);
 				((Float_resultContext)_localctx).i1 = int_result(0);
-				setState(110);
+				setState(443);
 				((Float_resultContext)_localctx).signo = _input.LT(1);
 				_la = _input.LA(1);
 				if ( !(_la==PLUS || _la==MINUS) ) {
@@ -715,15 +2645,11 @@ public class rubyParser extends Parser {
 					_errHandler.reportMatch(this);
 					consume();
 				}
-				setState(111);
-				((Float_resultContext)_localctx).f2 = ((Float_resultContext)_localctx).float_result = float_result(4);
+				setState(444);
+				((Float_resultContext)_localctx).f2 = float_result(3);
 
-					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).i1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).f2.info.getContent()));
-					else if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).i1.info;
-					else if(((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f2.info;
+					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
+						((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).i1.info,((Float_resultContext)_localctx).f2.info);
 					else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("PLUS"))
 						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Integer)((Float_resultContext)_localctx).i1.info.getContent()+(Double)((Float_resultContext)_localctx).f2.info.getContent());
 					else{
@@ -734,54 +2660,39 @@ public class rubyParser extends Parser {
 				break;
 			case 4:
 				{
-				setState(114);
-				match(LEFT_RBRACKET);
-				setState(115);
-				((Float_resultContext)_localctx).float_result = float_result(0);
-				setState(116);
-				match(RIGHT_RBRACKET);
-				((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).float_result.info;
-				}
-				break;
-			case 5:
-				{
-				setState(119);
+				setState(447);
 				((Float_resultContext)_localctx).float_t = float_t();
 				((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,((Float_resultContext)_localctx).float_t.value);
 				}
 				break;
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(156);
+			setState(484);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,7,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,28,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(154);
+					setState(482);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,6,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,27,_ctx) ) {
 					case 1:
 						{
 						_localctx = new Float_resultContext(_parentctx, _parentState);
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(124);
-						if (!(precpred(_ctx, 11))) throw new FailedPredicateException(this, "precpred(_ctx, 11)");
-						setState(125);
+						setState(452);
+						if (!(precpred(_ctx, 10))) throw new FailedPredicateException(this, "precpred(_ctx, 10)");
+						setState(453);
 						match(EXP);
-						setState(126);
-						((Float_resultContext)_localctx).f2 = ((Float_resultContext)_localctx).float_result = float_result(12);
+						setState(454);
+						((Float_resultContext)_localctx).f2 = float_result(11);
 
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).f1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).f2.info.getContent()));
-						          	else if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f1.info;
-						          	else if(((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f2.info;
+						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
+						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).f2.info);
 						          	else 
 						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)((Float_resultContext)_localctx).f1.info.getContent(),(double)((Float_resultContext)_localctx).f2.info.getContent()));
 						          
@@ -793,9 +2704,9 @@ public class rubyParser extends Parser {
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(129);
-						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
-						setState(130);
+						setState(457);
+						if (!(precpred(_ctx, 7))) throw new FailedPredicateException(this, "precpred(_ctx, 7)");
+						setState(458);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -806,25 +2717,17 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(131);
-						((Float_resultContext)_localctx).f2 = ((Float_resultContext)_localctx).float_result = float_result(9);
+						setState(459);
+						((Float_resultContext)_localctx).f2 = float_result(8);
 
 						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).f1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).f2.info.getContent()));
-						          	else if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f1.info;
-						          	else if(((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f2.info;
+						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).f2.info);
 						          	else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("MUL"))
 						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,(Double) ((Float_resultContext)_localctx).f1.info.getContent()* (Double) ((Float_resultContext)_localctx).f2.info.getContent());
-						          	else{
-						          		if((Double)((Float_resultContext)_localctx).f2.info.getContent()==0)
-						          			((Float_resultContext)_localctx).info =  new VarInfo(VarInfo.ERROR,"División por 0");
-						          		else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("DIV"))
-						          			((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()/(Double)((Float_resultContext)_localctx).f2.info.getContent());
-						          		else
-						          			((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()%(Double)((Float_resultContext)_localctx).f2.info.getContent());
-						          	}
+						          	else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("DIV"))
+						          			((Float_resultContext)_localctx).info = divide((Number) ((Float_resultContext)_localctx).i1.info.getContent(),(Number) ((Float_resultContext)_localctx).i2.info.getContent(),VarInfo.FLOAT_TYPE);
+						          	else
+						          			((Float_resultContext)_localctx).info = module((Number) ((Float_resultContext)_localctx).i1.info.getContent(),(Number) ((Float_resultContext)_localctx).i2.info.getContent(),VarInfo.FLOAT_TYPE);
 						          
 						}
 						break;
@@ -834,9 +2737,9 @@ public class rubyParser extends Parser {
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(134);
-						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
-						setState(135);
+						setState(462);
+						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
+						setState(463);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !(_la==PLUS || _la==MINUS) ) {
@@ -847,19 +2750,15 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(136);
-						((Float_resultContext)_localctx).f2 = ((Float_resultContext)_localctx).float_result = float_result(6);
+						setState(464);
+						((Float_resultContext)_localctx).f2 = float_result(5);
 
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).f1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).f2.info.getContent()));
-						          	else if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f1.info;
-						          	else if(((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f2.info;
+						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
+						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).f2.info);
 						          	else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("PLUS"))
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()+(Double)((Float_resultContext)_localctx).f2.info.getContent());
+						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()+(Double)((Float_resultContext)_localctx).f2.info.getContent());
 						          	else{
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()-(Double)((Float_resultContext)_localctx).f2.info.getContent());
+						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()-(Double)((Float_resultContext)_localctx).f2.info.getContent());
 						          	}
 						          
 						}
@@ -870,19 +2769,15 @@ public class rubyParser extends Parser {
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(139);
-						if (!(precpred(_ctx, 9))) throw new FailedPredicateException(this, "precpred(_ctx, 9)");
-						setState(140);
+						setState(467);
+						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
+						setState(468);
 						match(EXP);
-						setState(141);
+						setState(469);
 						((Float_resultContext)_localctx).i2 = int_result(0);
 
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).f1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).i2.info.getContent()));
-						          	else if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f1.info;
-						          	else if(((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).i2.info;
+						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
+						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).i2.info);
 						          	else 
 						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)((Float_resultContext)_localctx).f1.info.getContent(),(int)((Float_resultContext)_localctx).i2.info.getContent()));
 						          
@@ -894,9 +2789,9 @@ public class rubyParser extends Parser {
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(144);
-						if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
-						setState(145);
+						setState(472);
+						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
+						setState(473);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -907,25 +2802,17 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(146);
+						setState(474);
 						((Float_resultContext)_localctx).i2 = int_result(0);
 
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).f1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).i2.info.getContent()));
-						          	else if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f1.info;
-						          	else if(((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).i2.info;
+						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
+						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).i2.info);
 						          	else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("MUL"))
 						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,(Double) ((Float_resultContext)_localctx).f1.info.getContent()* (Double) ((Float_resultContext)_localctx).i2.info.getContent());
-						          	else{
-						          		if((Integer)((Float_resultContext)_localctx).i2.info.getContent()==0)
-						          			((Float_resultContext)_localctx).info =  new VarInfo(VarInfo.ERROR,"División por 0");
-						          		else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("DIV"))
-						          			((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()/(Integer)((Float_resultContext)_localctx).i2.info.getContent());
-						          		else
-						          			((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()%(Integer)((Float_resultContext)_localctx).i2.info.getContent());
-						          	}
+						          	else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("DIV"))
+						          		((Float_resultContext)_localctx).info = divide((Number) ((Float_resultContext)_localctx).i1.info.getContent(),(Number) ((Float_resultContext)_localctx).i2.info.getContent(),VarInfo.FLOAT_TYPE);
+						          	else
+						          		((Float_resultContext)_localctx).info = module((Number) ((Float_resultContext)_localctx).i1.info.getContent(),(Number) ((Float_resultContext)_localctx).i2.info.getContent(),VarInfo.FLOAT_TYPE);
 						          
 						}
 						break;
@@ -935,9 +2822,9 @@ public class rubyParser extends Parser {
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(149);
-						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-						setState(150);
+						setState(477);
+						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
+						setState(478);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !(_la==PLUS || _la==MINUS) ) {
@@ -948,15 +2835,11 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(151);
+						setState(479);
 						((Float_resultContext)_localctx).i2 = int_result(0);
 
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((Float_resultContext)_localctx).f1.info.getContent()) + "; " + ((String) ((Float_resultContext)_localctx).i2.info.getContent()));
-						          	else if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).f1.info;
-						          	else if(((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = ((Float_resultContext)_localctx).i2.info;
+						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
+						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).i2.info);
 						          	else if(getVocabulary().getSymbolicName((((Float_resultContext)_localctx).signo!=null?((Float_resultContext)_localctx).signo.getType():0)).equals("PLUS"))
 						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(Double)((Float_resultContext)_localctx).f1.info.getContent()+(Integer)((Float_resultContext)_localctx).i2.info.getContent());
 						          	else{
@@ -968,9 +2851,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(158);
+				setState(486);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,7,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,28,_ctx);
 			}
 			}
 		}
@@ -997,8 +2880,6 @@ public class rubyParser extends Parser {
 		public String_resultContext string_result() {
 			return getRuleContext(String_resultContext.class,0);
 		}
-		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
-		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
 		public Literal_tContext literal_t() {
 			return getRuleContext(Literal_tContext.class,0);
 		}
@@ -1025,69 +2906,48 @@ public class rubyParser extends Parser {
 		int _parentState = getState();
 		String_resultContext _localctx = new String_resultContext(_ctx, _parentState);
 		String_resultContext _prevctx = _localctx;
-		int _startState = 12;
-		enterRecursionRule(_localctx, 12, RULE_string_result, _p);
+		int _startState = 60;
+		enterRecursionRule(_localctx, 60, RULE_string_result, _p);
 		try {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(173);
+			setState(496);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,8,_ctx) ) {
-			case 1:
+			switch (_input.LA(1)) {
+			case INT:
 				{
-				setState(160);
+				setState(488);
 				((String_resultContext)_localctx).int_result = int_result(0);
-				setState(161);
+				setState(489);
 				match(MUL);
-				setState(162);
-				((String_resultContext)_localctx).string_result = string_result(3);
+				setState(490);
+				((String_resultContext)_localctx).string_result = string_result(2);
 
-					if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR && ((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
-						((String_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((String_resultContext)_localctx).int_result.info.getContent()) + "; " + ((String) ((String_resultContext)_localctx).string_result.info.getContent()));
-					else if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR)
-						((String_resultContext)_localctx).info = ((String_resultContext)_localctx).int_result.info;
-					else if(((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
-						((String_resultContext)_localctx).info = ((String_resultContext)_localctx).string_result.info;
+					if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR || ((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
+						((String_resultContext)_localctx).info = handleError(((String_resultContext)_localctx).int_result.info,((String_resultContext)_localctx).string_result.info);
 					else{
 						int n=(Integer) ((String_resultContext)_localctx).int_result.info.getContent();
 						String s=(String) ((String_resultContext)_localctx).string_result.info.getContent();
-						if(n<0)
-							((String_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
-						else{
-							String f="";
-							for(int i=0;i<n;i++){
-								f+=s;
-							}
-							((String_resultContext)_localctx).info = new VarInfo(VarInfo.STRING_TYPE,f);
-						}
+						((String_resultContext)_localctx).info = multString(s,n);
 					}
 
 				}
 				break;
-			case 2:
+			case LITERAL:
 				{
-				setState(165);
-				match(LEFT_RBRACKET);
-				setState(166);
-				((String_resultContext)_localctx).string_result = string_result(0);
-				setState(167);
-				match(RIGHT_RBRACKET);
-				((String_resultContext)_localctx).info = ((String_resultContext)_localctx).string_result.info;
-				}
-				break;
-			case 3:
-				{
-				setState(170);
+				setState(493);
 				((String_resultContext)_localctx).literal_t = literal_t();
 				((String_resultContext)_localctx).info = new VarInfo(VarInfo.STRING_TYPE, (((String_resultContext)_localctx).literal_t!=null?_input.getText(((String_resultContext)_localctx).literal_t.start,((String_resultContext)_localctx).literal_t.stop):null).substring(1,(((String_resultContext)_localctx).literal_t!=null?_input.getText(((String_resultContext)_localctx).literal_t.start,((String_resultContext)_localctx).literal_t.stop):null).length()-1));
 				}
 				break;
+			default:
+				throw new NoViableAltException(this);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(182);
+			setState(505);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,9,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,30,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
@@ -1096,39 +2956,27 @@ public class rubyParser extends Parser {
 					{
 					_localctx = new String_resultContext(_parentctx, _parentState);
 					pushNewRecursionContext(_localctx, _startState, RULE_string_result);
-					setState(175);
-					if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-					setState(176);
+					setState(498);
+					if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
+					setState(499);
 					match(MUL);
-					setState(177);
+					setState(500);
 					((String_resultContext)_localctx).int_result = int_result(0);
 
-					          	if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR && ((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
-					          		((String_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((String_resultContext)_localctx).int_result.info.getContent()) + "; " + ((String) ((String_resultContext)_localctx).string_result.info.getContent()));
-					          	else if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR)
-					          		((String_resultContext)_localctx).info = ((String_resultContext)_localctx).int_result.info;
-					          	else if(((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
-					          		((String_resultContext)_localctx).info = ((String_resultContext)_localctx).string_result.info;
+					          	if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR || ((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
+					          		((String_resultContext)_localctx).info = handleError(((String_resultContext)_localctx).int_result.info,((String_resultContext)_localctx).string_result.info);
 					          	else{
 					          		int n=(Integer) ((String_resultContext)_localctx).int_result.info.getContent();
 					          		String s=(String) ((String_resultContext)_localctx).string_result.info.getContent();
-					          		if(n<0)
-					          			((String_resultContext)_localctx).info = new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
-					          		else{
-					          			String f="";
-					          			for(int i=0;i<n;i++){
-					          				f+=s;
-					          			}
-					          			((String_resultContext)_localctx).info = new VarInfo(VarInfo.STRING_TYPE,f);
-					          		}
+					          		((String_resultContext)_localctx).info = multString(s,n);
 					          	}
 					          
 					}
 					} 
 				}
-				setState(184);
+				setState(507);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,9,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,30,_ctx);
 			}
 			}
 		}
@@ -1166,22 +3014,22 @@ public class rubyParser extends Parser {
 
 	public final LvalueContext lvalue() throws RecognitionException {
 		LvalueContext _localctx = new LvalueContext(_ctx, getState());
-		enterRule(_localctx, 14, RULE_lvalue);
+		enterRule(_localctx, 62, RULE_lvalue);
 		try {
-			setState(187);
+			setState(510);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case ID:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(185);
+				setState(508);
 				id();
 				}
 				break;
 			case ID_GLOBAL:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(186);
+				setState(509);
 				id_global();
 				}
 				break;
@@ -1239,6 +3087,13 @@ public class rubyParser extends Parser {
 		public RvalueContext rvalue(int i) {
 			return getRuleContext(RvalueContext.class,i);
 		}
+		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
+		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
+		public TerminalNode MUL() { return getToken(rubyParser.MUL, 0); }
+		public TerminalNode DIV() { return getToken(rubyParser.DIV, 0); }
+		public TerminalNode MOD() { return getToken(rubyParser.MOD, 0); }
+		public TerminalNode PLUS() { return getToken(rubyParser.PLUS, 0); }
+		public TerminalNode MINUS() { return getToken(rubyParser.MINUS, 0); }
 		public TerminalNode LESS() { return getToken(rubyParser.LESS, 0); }
 		public TerminalNode GREATER() { return getToken(rubyParser.GREATER, 0); }
 		public TerminalNode LESS_EQUAL() { return getToken(rubyParser.LESS_EQUAL, 0); }
@@ -1270,70 +3125,70 @@ public class rubyParser extends Parser {
 		int _parentState = getState();
 		RvalueContext _localctx = new RvalueContext(_ctx, _parentState);
 		RvalueContext _prevctx = _localctx;
-		int _startState = 16;
-		enterRecursionRule(_localctx, 16, RULE_rvalue, _p);
+		int _startState = 64;
+		enterRecursionRule(_localctx, 64, RULE_rvalue, _p);
 		try {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(215);
+			setState(543);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,11,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,32,_ctx) ) {
 			case 1:
 				{
-				setState(190);
+				setState(513);
 				((RvalueContext)_localctx).lvalue = lvalue();
 				if(varTable.containsKey((((RvalueContext)_localctx).lvalue!=null?_input.getText(((RvalueContext)_localctx).lvalue.start,((RvalueContext)_localctx).lvalue.stop):null))) ((RvalueContext)_localctx).info = varTable.get((((RvalueContext)_localctx).lvalue!=null?_input.getText(((RvalueContext)_localctx).lvalue.start,((RvalueContext)_localctx).lvalue.stop):null)); else ((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR,"Variable utilizada sin inicializar: "+(((RvalueContext)_localctx).lvalue!=null?_input.getText(((RvalueContext)_localctx).lvalue.start,((RvalueContext)_localctx).lvalue.stop):null));
 				}
 				break;
 			case 2:
 				{
-				setState(193);
+				setState(516);
 				((RvalueContext)_localctx).int_result = int_result(0);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).int_result.info;
 				}
 				break;
 			case 3:
 				{
-				setState(196);
+				setState(519);
 				((RvalueContext)_localctx).float_result = float_result(0);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).float_result.info;
 				}
 				break;
 			case 4:
 				{
-				setState(199);
+				setState(522);
 				((RvalueContext)_localctx).string_result = string_result(0);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).string_result.info;
 				}
 				break;
 			case 5:
 				{
-				setState(202);
+				setState(525);
 				((RvalueContext)_localctx).assignment = assignment();
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).assignment.info;
 				}
 				break;
 			case 6:
 				{
-				setState(205);
+				setState(528);
 				((RvalueContext)_localctx).bool_t = bool_t();
 				((RvalueContext)_localctx).info = new VarInfo(VarInfo.BOOL_TYPE,((RvalueContext)_localctx).bool_t.value);
 				}
 				break;
 			case 7:
 				{
-				setState(208);
+				setState(531);
 				nil_t();
 				((RvalueContext)_localctx).info = new VarInfo(VarInfo.NIL_TYPE,null);
 				}
 				break;
 			case 8:
 				{
-				setState(211);
+				setState(534);
 				match(NOT);
-				setState(212);
-				((RvalueContext)_localctx).rvalue = rvalue(4);
+				setState(535);
+				((RvalueContext)_localctx).rvalue = rvalue(7);
 
 					if(((RvalueContext)_localctx).rvalue.info.getType()==VarInfo.ERROR)
 						((RvalueContext)_localctx).info = ((RvalueContext)_localctx).rvalue.info;
@@ -1342,54 +3197,196 @@ public class rubyParser extends Parser {
 
 				}
 				break;
+			case 9:
+				{
+				setState(538);
+				match(LEFT_RBRACKET);
+				setState(539);
+				((RvalueContext)_localctx).rvalue = rvalue(0);
+				setState(540);
+				match(RIGHT_RBRACKET);
+				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).rvalue.info;
+				}
+				break;
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(253);
+			setState(603);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,16,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,39,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(251);
+					setState(601);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,15,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,38,_ctx) ) {
 					case 1:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(217);
-						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
+						setState(545);
+						if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
+						int operation=0;
+						setState(552);
+						_errHandler.sync(this);
+						switch (_input.LA(1)) {
+						case MUL:
+							{
+							setState(547);
+							match(MUL);
+							}
+							break;
+						case DIV:
+							{
+							setState(548);
+							match(DIV);
+							operation=1;
+							}
+							break;
+						case MOD:
+							{
+							setState(550);
+							match(MOD);
+							operation=2;
+							}
+							break;
+						default:
+							throw new NoViableAltException(this);
+						}
+						setState(554);
+						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(7);
+
+						          	VarInfo info1=((RvalueContext)_localctx).r1.info, info2=((RvalueContext)_localctx).r2.info;
+						          	if((info1.getType()==VarInfo.INT_TYPE||info1.getType()==VarInfo.FLOAT_TYPE) && (info2.getType()==VarInfo.INT_TYPE||info2.getType()==VarInfo.FLOAT_TYPE)){
+						          		int resultType=VarInfo.FLOAT_TYPE;
+						          		if(info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.INT_TYPE){
+						          			resultType=VarInfo.INT_TYPE;
+						          		}
+						          		switch(operation){
+						          		case 0:
+						          			if(resultType==VarInfo.INT_TYPE)
+						          				((RvalueContext)_localctx).info = new VarInfo(resultType,((int)info1.getContent())*((int)info2.getContent()));
+						          			else
+						          				((RvalueContext)_localctx).info = new VarInfo(resultType,((Number)info1.getContent()).doubleValue()*((Number)info2.getContent()).doubleValue());
+						          		break;
+						          		case 1:
+						          			((RvalueContext)_localctx).info = divide((Number) info1.getContent(),(Number) info1.getContent(),resultType);
+						          		break;
+						          		case 2:
+						          			((RvalueContext)_localctx).info = module((Number) info1.getContent(),(Number) info1.getContent(),resultType);
+						          		break;
+						          		}
+						          	}
+						          	else if(((info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.STRING_TYPE)||(info2.getType()==VarInfo.INT_TYPE && info1.getType()==VarInfo.STRING_TYPE))&&operation==0){
+						          		if(info1.getType()==VarInfo.INT_TYPE)
+						          			((RvalueContext)_localctx).info = multString((String) info2.getContent(),(int) info1.getContent());
+						          		else
+						          			((RvalueContext)_localctx).info = multString((String) info1.getContent(),(int) info2.getContent());
+						          	}
+						          	else if(info1.getType()==VarInfo.ERROR || info2.getType()==VarInfo.ERROR)
+						          		((RvalueContext)_localctx).info = handleError(info1,info2);
+						          	else ((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR,"Tipos incompatibles para esa operación");
+						          
+						}
+						break;
+					case 2:
+						{
+						_localctx = new RvalueContext(_parentctx, _parentState);
+						_localctx.r1 = _prevctx;
+						_localctx.r1 = _prevctx;
+						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
+						setState(557);
+						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
+						int operation=0;
+						setState(562);
+						_errHandler.sync(this);
+						switch (_input.LA(1)) {
+						case PLUS:
+							{
+							setState(559);
+							match(PLUS);
+							}
+							break;
+						case MINUS:
+							{
+							setState(560);
+							match(MINUS);
+							operation=1;
+							}
+							break;
+						default:
+							throw new NoViableAltException(this);
+						}
+						setState(564);
+						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(6);
+
+						          	VarInfo info1=((RvalueContext)_localctx).r1.info, info2=((RvalueContext)_localctx).r2.info;
+						          	if((info1.getType()==VarInfo.INT_TYPE||info1.getType()==VarInfo.FLOAT_TYPE) && (info2.getType()==VarInfo.INT_TYPE||info2.getType()==VarInfo.FLOAT_TYPE)){
+						          		int resultType=VarInfo.FLOAT_TYPE;
+						          		if(info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.INT_TYPE)
+						          			resultType=VarInfo.INT_TYPE;
+						          		switch(operation){
+						          		case 0:
+						          			if(resultType==VarInfo.INT_TYPE)
+						          				((RvalueContext)_localctx).info = new VarInfo(resultType,((int)info1.getContent())+((int)info2.getContent()));
+						          			else
+						          				((RvalueContext)_localctx).info = new VarInfo(resultType,((Number)info1.getContent()).doubleValue()+((Number)info2.getContent()).doubleValue());
+						          		break;
+						          		case 1:
+						          			if(resultType==VarInfo.INT_TYPE)
+						          				((RvalueContext)_localctx).info = new VarInfo(resultType,((int)info1.getContent())-((int)info2.getContent()));
+						          			else
+						          				((RvalueContext)_localctx).info = new VarInfo(resultType,((Number)info1.getContent()).doubleValue()-((Number)info2.getContent()).doubleValue());
+						          		break;
+						          		}
+						          	}
+						          	else if(info1.getType()==VarInfo.STRING_TYPE && info2.getType()==VarInfo.STRING_TYPE&& operation==0){
+						          		((RvalueContext)_localctx).info = new VarInfo(VarInfo.STRING_TYPE,((String) info1.getContent())+((String) info2.getContent()));
+						          	}
+						          	else if(info1.getType()==VarInfo.ERROR || info2.getType()==VarInfo.ERROR)
+						          		((RvalueContext)_localctx).info = handleError(info1,info2);
+						          	else ((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR,"Tipos incompatibles para esa operación");
+						          
+						}
+						break;
+					case 3:
+						{
+						_localctx = new RvalueContext(_parentctx, _parentState);
+						_localctx.r1 = _prevctx;
+						_localctx.r1 = _prevctx;
+						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
+						setState(567);
+						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
 						int selector=0;
-						setState(226);
+						setState(576);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case LESS:
 							{
-							setState(219);
+							setState(569);
 							match(LESS);
 							}
 							break;
 						case GREATER:
 							{
-							setState(220);
+							setState(570);
 							match(GREATER);
 							selector=1;
 							}
 							break;
 						case LESS_EQUAL:
 							{
-							setState(222);
+							setState(572);
 							match(LESS_EQUAL);
 							selector=2;
 							}
 							break;
 						case GREATER_EQUAL:
 							{
-							setState(224);
+							setState(574);
 							match(GREATER_EQUAL);
 							selector=3;
 							}
@@ -1397,16 +3394,12 @@ public class rubyParser extends Parser {
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(228);
-						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(4);
+						setState(578);
+						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(5);
 
 						          	boolean val=false;
-						          	if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR && ((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
-						          		((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((RvalueContext)_localctx).r1.info.getContent()) + "; " + ((String) ((RvalueContext)_localctx).r2.info.getContent()));
-						          	else if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR)
-						          		((RvalueContext)_localctx).info = ((RvalueContext)_localctx).r1.info;
-						          	else if(((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
-						          		((RvalueContext)_localctx).info = ((RvalueContext)_localctx).r2.info;
+						          	if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR || ((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
+						          		((RvalueContext)_localctx).info = handleError(((RvalueContext)_localctx).r1.info,((RvalueContext)_localctx).r1.info);
 						          	else{
 						          		if(((RvalueContext)_localctx).r1.info.getType()==((RvalueContext)_localctx).r2.info.getType() && !(((RvalueContext)_localctx).r1.info.getType()==VarInfo.NIL_TYPE)){
 						          			int comp=((Comparable) ((RvalueContext)_localctx).r1.info.getContent()).compareTo(((RvalueContext)_localctx).r2.info.getContent());
@@ -1451,36 +3444,36 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 2:
+					case 4:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(231);
-						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
+						setState(581);
+						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
 						boolean eq=false;
-						setState(236);
+						setState(586);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case EQUAL:
 							{
-							setState(233);
+							setState(583);
 							match(EQUAL);
 							eq=true;
 							}
 							break;
 						case NOT_EQUAL:
 							{
-							setState(235);
+							setState(585);
 							match(NOT_EQUAL);
 							}
 							break;
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(238);
-						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(3);
+						setState(588);
+						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(4);
 
 						          	boolean val=false;
 						          	if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR && ((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
@@ -1505,36 +3498,36 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 3:
+					case 5:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(241);
-						if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
+						setState(591);
+						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
 						boolean modeOr=false;
-						setState(246);
+						setState(596);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case OR:
 							{
-							setState(243);
+							setState(593);
 							match(OR);
 							modeOr=false;
 							}
 							break;
 						case AND:
 							{
-							setState(245);
+							setState(595);
 							match(AND);
 							}
 							break;
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(248);
-						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(2);
+						setState(598);
+						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(3);
 
 						          	if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR && ((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
 						          		((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR, ((String) ((RvalueContext)_localctx).r1.info.getContent()) + "; " + ((String) ((RvalueContext)_localctx).r2.info.getContent()));
@@ -1550,9 +3543,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(255);
+				setState(605);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,16,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,39,_ctx);
 			}
 			}
 		}
@@ -1585,11 +3578,11 @@ public class rubyParser extends Parser {
 
 	public final Literal_tContext literal_t() throws RecognitionException {
 		Literal_tContext _localctx = new Literal_tContext(_ctx, getState());
-		enterRule(_localctx, 18, RULE_literal_t);
+		enterRule(_localctx, 66, RULE_literal_t);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(256);
+			setState(606);
 			match(LITERAL);
 			}
 		}
@@ -1624,11 +3617,11 @@ public class rubyParser extends Parser {
 
 	public final Float_tContext float_t() throws RecognitionException {
 		Float_tContext _localctx = new Float_tContext(_ctx, getState());
-		enterRule(_localctx, 20, RULE_float_t);
+		enterRule(_localctx, 68, RULE_float_t);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(258);
+			setState(608);
 			((Float_tContext)_localctx).FLOAT = match(FLOAT);
 			((Float_tContext)_localctx).value = Double.parseDouble((((Float_tContext)_localctx).FLOAT!=null?((Float_tContext)_localctx).FLOAT.getText():null));
 			}
@@ -1664,11 +3657,11 @@ public class rubyParser extends Parser {
 
 	public final Int_tContext int_t() throws RecognitionException {
 		Int_tContext _localctx = new Int_tContext(_ctx, getState());
-		enterRule(_localctx, 22, RULE_int_t);
+		enterRule(_localctx, 70, RULE_int_t);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(261);
+			setState(611);
 			((Int_tContext)_localctx).INT = match(INT);
 			((Int_tContext)_localctx).value = (((Int_tContext)_localctx).INT!=null?Integer.valueOf(((Int_tContext)_localctx).INT.getText()):0);
 			}
@@ -1704,15 +3697,15 @@ public class rubyParser extends Parser {
 
 	public final Bool_tContext bool_t() throws RecognitionException {
 		Bool_tContext _localctx = new Bool_tContext(_ctx, getState());
-		enterRule(_localctx, 24, RULE_bool_t);
+		enterRule(_localctx, 72, RULE_bool_t);
 		try {
-			setState(268);
+			setState(618);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case TRUE:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(264);
+				setState(614);
 				match(TRUE);
 				((Bool_tContext)_localctx).value = true;
 				}
@@ -1720,7 +3713,7 @@ public class rubyParser extends Parser {
 			case FALSE:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(266);
+				setState(616);
 				match(FALSE);
 				((Bool_tContext)_localctx).value = false;
 				}
@@ -1758,11 +3751,11 @@ public class rubyParser extends Parser {
 
 	public final Nil_tContext nil_t() throws RecognitionException {
 		Nil_tContext _localctx = new Nil_tContext(_ctx, getState());
-		enterRule(_localctx, 26, RULE_nil_t);
+		enterRule(_localctx, 74, RULE_nil_t);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(270);
+			setState(620);
 			match(NIL);
 			}
 		}
@@ -1795,11 +3788,11 @@ public class rubyParser extends Parser {
 
 	public final IdContext id() throws RecognitionException {
 		IdContext _localctx = new IdContext(_ctx, getState());
-		enterRule(_localctx, 28, RULE_id);
+		enterRule(_localctx, 76, RULE_id);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(272);
+			setState(622);
 			match(ID);
 			}
 		}
@@ -1832,11 +3825,11 @@ public class rubyParser extends Parser {
 
 	public final Id_globalContext id_global() throws RecognitionException {
 		Id_globalContext _localctx = new Id_globalContext(_ctx, getState());
-		enterRule(_localctx, 30, RULE_id_global);
+		enterRule(_localctx, 78, RULE_id_global);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(274);
+			setState(624);
 			match(ID_GLOBAL);
 			}
 		}
@@ -1869,11 +3862,11 @@ public class rubyParser extends Parser {
 
 	public final Id_functionContext id_function() throws RecognitionException {
 		Id_functionContext _localctx = new Id_functionContext(_ctx, getState());
-		enterRule(_localctx, 32, RULE_id_function);
+		enterRule(_localctx, 80, RULE_id_function);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(276);
+			setState(626);
 			match(ID_FUNCTION);
 			}
 		}
@@ -1919,24 +3912,24 @@ public class rubyParser extends Parser {
 		int _parentState = getState();
 		TerminatorContext _localctx = new TerminatorContext(_ctx, _parentState);
 		TerminatorContext _prevctx = _localctx;
-		int _startState = 34;
-		enterRecursionRule(_localctx, 34, RULE_terminator, _p);
+		int _startState = 82;
+		enterRecursionRule(_localctx, 82, RULE_terminator, _p);
 		try {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(281);
+			setState(631);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case SEMICOLON:
 				{
-				setState(279);
+				setState(629);
 				match(SEMICOLON);
 				}
 				break;
 			case CRLF:
 				{
-				setState(280);
+				setState(630);
 				crlf();
 				}
 				break;
@@ -1944,24 +3937,24 @@ public class rubyParser extends Parser {
 				throw new NoViableAltException(this);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(289);
+			setState(639);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,20,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,43,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(287);
+					setState(637);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,19,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,42,_ctx) ) {
 					case 1:
 						{
 						_localctx = new TerminatorContext(_parentctx, _parentState);
 						pushNewRecursionContext(_localctx, _startState, RULE_terminator);
-						setState(283);
+						setState(633);
 						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-						setState(284);
+						setState(634);
 						match(SEMICOLON);
 						}
 						break;
@@ -1969,18 +3962,18 @@ public class rubyParser extends Parser {
 						{
 						_localctx = new TerminatorContext(_parentctx, _parentState);
 						pushNewRecursionContext(_localctx, _startState, RULE_terminator);
-						setState(285);
+						setState(635);
 						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-						setState(286);
+						setState(636);
 						crlf();
 						}
 						break;
 					}
 					} 
 				}
-				setState(291);
+				setState(641);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,20,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,43,_ctx);
 			}
 			}
 		}
@@ -2013,11 +4006,11 @@ public class rubyParser extends Parser {
 
 	public final CrlfContext crlf() throws RecognitionException {
 		CrlfContext _localctx = new CrlfContext(_ctx, getState());
-		enterRule(_localctx, 36, RULE_crlf);
+		enterRule(_localctx, 84, RULE_crlf);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(292);
+			setState(642);
 			match(CRLF);
 			}
 		}
@@ -2036,15 +4029,25 @@ public class rubyParser extends Parser {
 		switch (ruleIndex) {
 		case 1:
 			return expression_list_sempred((Expression_listContext)_localctx, predIndex);
-		case 4:
+		case 9:
+			return function_definition_params_list_sempred((Function_definition_params_listContext)_localctx, predIndex);
+		case 13:
+			return function_call_params_sempred((Function_call_paramsContext)_localctx, predIndex);
+		case 18:
+			return while_expression_list_sempred((While_expression_listContext)_localctx, predIndex);
+		case 20:
+			return for_expression_list_sempred((For_expression_listContext)_localctx, predIndex);
+		case 26:
+			return array_definition_elements_sempred((Array_definition_elementsContext)_localctx, predIndex);
+		case 28:
 			return int_result_sempred((Int_resultContext)_localctx, predIndex);
-		case 5:
+		case 29:
 			return float_result_sempred((Float_resultContext)_localctx, predIndex);
-		case 6:
+		case 30:
 			return string_result_sempred((String_resultContext)_localctx, predIndex);
-		case 8:
+		case 32:
 			return rvalue_sempred((RvalueContext)_localctx, predIndex);
-		case 17:
+		case 41:
 			return terminator_sempred((TerminatorContext)_localctx, predIndex);
 		}
 		return true;
@@ -2056,161 +4059,342 @@ public class rubyParser extends Parser {
 		}
 		return true;
 	}
-	private boolean int_result_sempred(Int_resultContext _localctx, int predIndex) {
+	private boolean function_definition_params_list_sempred(Function_definition_params_listContext _localctx, int predIndex) {
 		switch (predIndex) {
 		case 1:
-			return precpred(_ctx, 5);
+			return precpred(_ctx, 1);
+		}
+		return true;
+	}
+	private boolean function_call_params_sempred(Function_call_paramsContext _localctx, int predIndex) {
+		switch (predIndex) {
 		case 2:
-			return precpred(_ctx, 4);
+			return precpred(_ctx, 1);
+		}
+		return true;
+	}
+	private boolean while_expression_list_sempred(While_expression_listContext _localctx, int predIndex) {
+		switch (predIndex) {
 		case 3:
 			return precpred(_ctx, 3);
+		case 4:
+			return precpred(_ctx, 2);
+		case 5:
+			return precpred(_ctx, 1);
+		}
+		return true;
+	}
+	private boolean for_expression_list_sempred(For_expression_listContext _localctx, int predIndex) {
+		switch (predIndex) {
+		case 6:
+			return precpred(_ctx, 3);
+		case 7:
+			return precpred(_ctx, 2);
+		case 8:
+			return precpred(_ctx, 1);
+		}
+		return true;
+	}
+	private boolean array_definition_elements_sempred(Array_definition_elementsContext _localctx, int predIndex) {
+		switch (predIndex) {
+		case 9:
+			return precpred(_ctx, 1);
+		}
+		return true;
+	}
+	private boolean int_result_sempred(Int_resultContext _localctx, int predIndex) {
+		switch (predIndex) {
+		case 10:
+			return precpred(_ctx, 4);
+		case 11:
+			return precpred(_ctx, 3);
+		case 12:
+			return precpred(_ctx, 2);
 		}
 		return true;
 	}
 	private boolean float_result_sempred(Float_resultContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 4:
-			return precpred(_ctx, 11);
-		case 5:
+		case 13:
+			return precpred(_ctx, 10);
+		case 14:
+			return precpred(_ctx, 7);
+		case 15:
+			return precpred(_ctx, 4);
+		case 16:
 			return precpred(_ctx, 8);
-		case 6:
+		case 17:
 			return precpred(_ctx, 5);
-		case 7:
-			return precpred(_ctx, 9);
-		case 8:
-			return precpred(_ctx, 6);
-		case 9:
-			return precpred(_ctx, 3);
+		case 18:
+			return precpred(_ctx, 2);
 		}
 		return true;
 	}
 	private boolean string_result_sempred(String_resultContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 10:
-			return precpred(_ctx, 4);
+		case 19:
+			return precpred(_ctx, 3);
 		}
 		return true;
 	}
 	private boolean rvalue_sempred(RvalueContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 11:
+		case 20:
+			return precpred(_ctx, 6);
+		case 21:
+			return precpred(_ctx, 5);
+		case 22:
+			return precpred(_ctx, 4);
+		case 23:
 			return precpred(_ctx, 3);
-		case 12:
+		case 24:
 			return precpred(_ctx, 2);
-		case 13:
-			return precpred(_ctx, 1);
 		}
 		return true;
 	}
 	private boolean terminator_sempred(TerminatorContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 14:
+		case 25:
 			return precpred(_ctx, 4);
-		case 15:
+		case 26:
 			return precpred(_ctx, 3);
 		}
 		return true;
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3A\u0129\4\2\t\2\4"+
+		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3A\u0287\4\2\t\2\4"+
 		"\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t"+
 		"\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22"+
-		"\4\23\t\23\4\24\t\24\3\2\3\2\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\7\3\63\n"+
-		"\3\f\3\16\3\66\13\3\3\4\3\4\3\4\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\5"+
-		"\5D\n\5\3\6\3\6\3\6\3\6\3\6\3\6\3\6\3\6\3\6\5\6O\n\6\3\6\3\6\3\6\3\6\3"+
-		"\6\3\6\3\6\3\6\3\6\3\6\3\6\3\6\3\6\3\6\3\6\7\6`\n\6\f\6\16\6c\13\6\3\7"+
-		"\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3"+
-		"\7\3\7\3\7\3\7\3\7\3\7\5\7}\n\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3"+
-		"\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7"+
-		"\3\7\3\7\3\7\7\7\u009d\n\7\f\7\16\7\u00a0\13\7\3\b\3\b\3\b\3\b\3\b\3\b"+
-		"\3\b\3\b\3\b\3\b\3\b\3\b\3\b\3\b\5\b\u00b0\n\b\3\b\3\b\3\b\3\b\3\b\7\b"+
-		"\u00b7\n\b\f\b\16\b\u00ba\13\b\3\t\3\t\5\t\u00be\n\t\3\n\3\n\3\n\3\n\3"+
-		"\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n"+
-		"\3\n\3\n\3\n\3\n\5\n\u00da\n\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\5\n"+
-		"\u00e5\n\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\5\n\u00ef\n\n\3\n\3\n\3\n\3"+
-		"\n\3\n\3\n\3\n\3\n\5\n\u00f9\n\n\3\n\3\n\3\n\7\n\u00fe\n\n\f\n\16\n\u0101"+
-		"\13\n\3\13\3\13\3\f\3\f\3\f\3\r\3\r\3\r\3\16\3\16\3\16\3\16\5\16\u010f"+
-		"\n\16\3\17\3\17\3\20\3\20\3\21\3\21\3\22\3\22\3\23\3\23\3\23\5\23\u011c"+
-		"\n\23\3\23\3\23\3\23\3\23\7\23\u0122\n\23\f\23\16\23\u0125\13\23\3\24"+
-		"\3\24\3\24\2\b\4\n\f\16\22$\25\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36"+
-		" \"$&\2\5\3\2&+\3\2\33\35\3\2\31\32\u013c\2(\3\2\2\2\4*\3\2\2\2\6\67\3"+
-		"\2\2\2\bC\3\2\2\2\nN\3\2\2\2\f|\3\2\2\2\16\u00af\3\2\2\2\20\u00bd\3\2"+
-		"\2\2\22\u00d9\3\2\2\2\24\u0102\3\2\2\2\26\u0104\3\2\2\2\30\u0107\3\2\2"+
-		"\2\32\u010e\3\2\2\2\34\u0110\3\2\2\2\36\u0112\3\2\2\2 \u0114\3\2\2\2\""+
-		"\u0116\3\2\2\2$\u011b\3\2\2\2&\u0126\3\2\2\2()\5\4\3\2)\3\3\2\2\2*+\b"+
-		"\3\1\2+,\5\6\4\2,-\5$\23\2-\64\3\2\2\2./\f\4\2\2/\60\5\6\4\2\60\61\5$"+
-		"\23\2\61\63\3\2\2\2\62.\3\2\2\2\63\66\3\2\2\2\64\62\3\2\2\2\64\65\3\2"+
-		"\2\2\65\5\3\2\2\2\66\64\3\2\2\2\678\5\22\n\289\b\4\1\29\7\3\2\2\2:;\5"+
-		"\20\t\2;<\7%\2\2<=\5\22\n\2=>\b\5\1\2>D\3\2\2\2?@\5\20\t\2@A\t\2\2\2A"+
-		"B\5\22\n\2BD\3\2\2\2C:\3\2\2\2C?\3\2\2\2D\t\3\2\2\2EF\b\6\1\2FG\7\65\2"+
-		"\2GH\5\n\6\2HI\7\66\2\2IJ\b\6\1\2JO\3\2\2\2KL\5\30\r\2LM\b\6\1\2MO\3\2"+
-		"\2\2NE\3\2\2\2NK\3\2\2\2Oa\3\2\2\2PQ\f\7\2\2QR\7\36\2\2RS\5\n\6\bST\b"+
-		"\6\1\2T`\3\2\2\2UV\f\6\2\2VW\t\3\2\2WX\5\n\6\7XY\b\6\1\2Y`\3\2\2\2Z[\f"+
-		"\5\2\2[\\\t\4\2\2\\]\5\n\6\6]^\b\6\1\2^`\3\2\2\2_P\3\2\2\2_U\3\2\2\2_"+
-		"Z\3\2\2\2`c\3\2\2\2a_\3\2\2\2ab\3\2\2\2b\13\3\2\2\2ca\3\2\2\2de\b\7\1"+
-		"\2ef\5\n\6\2fg\7\36\2\2gh\5\f\7\fhi\b\7\1\2i}\3\2\2\2jk\5\n\6\2kl\t\3"+
-		"\2\2lm\5\f\7\tmn\b\7\1\2n}\3\2\2\2op\5\n\6\2pq\t\4\2\2qr\5\f\7\6rs\b\7"+
-		"\1\2s}\3\2\2\2tu\7\65\2\2uv\5\f\7\2vw\7\66\2\2wx\b\7\1\2x}\3\2\2\2yz\5"+
-		"\26\f\2z{\b\7\1\2{}\3\2\2\2|d\3\2\2\2|j\3\2\2\2|o\3\2\2\2|t\3\2\2\2|y"+
-		"\3\2\2\2}\u009e\3\2\2\2~\177\f\r\2\2\177\u0080\7\36\2\2\u0080\u0081\5"+
-		"\f\7\16\u0081\u0082\b\7\1\2\u0082\u009d\3\2\2\2\u0083\u0084\f\n\2\2\u0084"+
-		"\u0085\t\3\2\2\u0085\u0086\5\f\7\13\u0086\u0087\b\7\1\2\u0087\u009d\3"+
-		"\2\2\2\u0088\u0089\f\7\2\2\u0089\u008a\t\4\2\2\u008a\u008b\5\f\7\b\u008b"+
-		"\u008c\b\7\1\2\u008c\u009d\3\2\2\2\u008d\u008e\f\13\2\2\u008e\u008f\7"+
-		"\36\2\2\u008f\u0090\5\n\6\2\u0090\u0091\b\7\1\2\u0091\u009d\3\2\2\2\u0092"+
-		"\u0093\f\b\2\2\u0093\u0094\t\3\2\2\u0094\u0095\5\n\6\2\u0095\u0096\b\7"+
-		"\1\2\u0096\u009d\3\2\2\2\u0097\u0098\f\5\2\2\u0098\u0099\t\4\2\2\u0099"+
-		"\u009a\5\n\6\2\u009a\u009b\b\7\1\2\u009b\u009d\3\2\2\2\u009c~\3\2\2\2"+
-		"\u009c\u0083\3\2\2\2\u009c\u0088\3\2\2\2\u009c\u008d\3\2\2\2\u009c\u0092"+
-		"\3\2\2\2\u009c\u0097\3\2\2\2\u009d\u00a0\3\2\2\2\u009e\u009c\3\2\2\2\u009e"+
-		"\u009f\3\2\2\2\u009f\r\3\2\2\2\u00a0\u009e\3\2\2\2\u00a1\u00a2\b\b\1\2"+
-		"\u00a2\u00a3\5\n\6\2\u00a3\u00a4\7\33\2\2\u00a4\u00a5\5\16\b\5\u00a5\u00a6"+
-		"\b\b\1\2\u00a6\u00b0\3\2\2\2\u00a7\u00a8\7\65\2\2\u00a8\u00a9\5\16\b\2"+
-		"\u00a9\u00aa\7\66\2\2\u00aa\u00ab\b\b\1\2\u00ab\u00b0\3\2\2\2\u00ac\u00ad"+
-		"\5\24\13\2\u00ad\u00ae\b\b\1\2\u00ae\u00b0\3\2\2\2\u00af\u00a1\3\2\2\2"+
-		"\u00af\u00a7\3\2\2\2\u00af\u00ac\3\2\2\2\u00b0\u00b8\3\2\2\2\u00b1\u00b2"+
-		"\f\6\2\2\u00b2\u00b3\7\33\2\2\u00b3\u00b4\5\n\6\2\u00b4\u00b5\b\b\1\2"+
-		"\u00b5\u00b7\3\2\2\2\u00b6\u00b1\3\2\2\2\u00b7\u00ba\3\2\2\2\u00b8\u00b6"+
-		"\3\2\2\2\u00b8\u00b9\3\2\2\2\u00b9\17\3\2\2\2\u00ba\u00b8\3\2\2\2\u00bb"+
-		"\u00be\5\36\20\2\u00bc\u00be\5 \21\2\u00bd\u00bb\3\2\2\2\u00bd\u00bc\3"+
-		"\2\2\2\u00be\21\3\2\2\2\u00bf\u00c0\b\n\1\2\u00c0\u00c1\5\20\t\2\u00c1"+
-		"\u00c2\b\n\1\2\u00c2\u00da\3\2\2\2\u00c3\u00c4\5\n\6\2\u00c4\u00c5\b\n"+
-		"\1\2\u00c5\u00da\3\2\2\2\u00c6\u00c7\5\f\7\2\u00c7\u00c8\b\n\1\2\u00c8"+
-		"\u00da\3\2\2\2\u00c9\u00ca\5\16\b\2\u00ca\u00cb\b\n\1\2\u00cb\u00da\3"+
-		"\2\2\2\u00cc\u00cd\5\b\5\2\u00cd\u00ce\b\n\1\2\u00ce\u00da\3\2\2\2\u00cf"+
-		"\u00d0\5\32\16\2\u00d0\u00d1\b\n\1\2\u00d1\u00da\3\2\2\2\u00d2\u00d3\5"+
-		"\34\17\2\u00d3\u00d4\b\n\1\2\u00d4\u00da\3\2\2\2\u00d5\u00d6\7\64\2\2"+
-		"\u00d6\u00d7\5\22\n\6\u00d7\u00d8\b\n\1\2\u00d8\u00da\3\2\2\2\u00d9\u00bf"+
-		"\3\2\2\2\u00d9\u00c3\3\2\2\2\u00d9\u00c6\3\2\2\2\u00d9\u00c9\3\2\2\2\u00d9"+
-		"\u00cc\3\2\2\2\u00d9\u00cf\3\2\2\2\u00d9\u00d2\3\2\2\2\u00d9\u00d5\3\2"+
-		"\2\2\u00da\u00ff\3\2\2\2\u00db\u00dc\f\5\2\2\u00dc\u00e4\b\n\1\2\u00dd"+
-		"\u00e5\7\"\2\2\u00de\u00df\7!\2\2\u00df\u00e5\b\n\1\2\u00e0\u00e1\7#\2"+
-		"\2\u00e1\u00e5\b\n\1\2\u00e2\u00e3\7$\2\2\u00e3\u00e5\b\n\1\2\u00e4\u00dd"+
-		"\3\2\2\2\u00e4\u00de\3\2\2\2\u00e4\u00e0\3\2\2\2\u00e4\u00e2\3\2\2\2\u00e5"+
-		"\u00e6\3\2\2\2\u00e6\u00e7\5\22\n\6\u00e7\u00e8\b\n\1\2\u00e8\u00fe\3"+
-		"\2\2\2\u00e9\u00ea\f\4\2\2\u00ea\u00ee\b\n\1\2\u00eb\u00ec\7\37\2\2\u00ec"+
-		"\u00ef\b\n\1\2\u00ed\u00ef\7 \2\2\u00ee\u00eb\3\2\2\2\u00ee\u00ed\3\2"+
-		"\2\2\u00ef\u00f0\3\2\2\2\u00f0\u00f1\5\22\n\5\u00f1\u00f2\b\n\1\2\u00f2"+
-		"\u00fe\3\2\2\2\u00f3\u00f4\f\3\2\2\u00f4\u00f8\b\n\1\2\u00f5\u00f6\7\63"+
-		"\2\2\u00f6\u00f9\b\n\1\2\u00f7\u00f9\7\62\2\2\u00f8\u00f5\3\2\2\2\u00f8"+
-		"\u00f7\3\2\2\2\u00f9\u00fa\3\2\2\2\u00fa\u00fb\5\22\n\4\u00fb\u00fc\b"+
-		"\n\1\2\u00fc\u00fe\3\2\2\2\u00fd\u00db\3\2\2\2\u00fd\u00e9\3\2\2\2\u00fd"+
-		"\u00f3\3\2\2\2\u00fe\u0101\3\2\2\2\u00ff\u00fd\3\2\2\2\u00ff\u0100\3\2"+
-		"\2\2\u0100\23\3\2\2\2\u0101\u00ff\3\2\2\2\u0102\u0103\7\4\2\2\u0103\25"+
-		"\3\2\2\2\u0104\u0105\7>\2\2\u0105\u0106\b\f\1\2\u0106\27\3\2\2\2\u0107"+
-		"\u0108\7=\2\2\u0108\u0109\b\r\1\2\u0109\31\3\2\2\2\u010a\u010b\7\27\2"+
-		"\2\u010b\u010f\b\16\1\2\u010c\u010d\7\30\2\2\u010d\u010f\b\16\1\2\u010e"+
-		"\u010a\3\2\2\2\u010e\u010c\3\2\2\2\u010f\33\3\2\2\2\u0110\u0111\79\2\2"+
-		"\u0111\35\3\2\2\2\u0112\u0113\7?\2\2\u0113\37\3\2\2\2\u0114\u0115\7@\2"+
-		"\2\u0115!\3\2\2\2\u0116\u0117\7A\2\2\u0117#\3\2\2\2\u0118\u0119\b\23\1"+
-		"\2\u0119\u011c\7\6\2\2\u011a\u011c\5&\24\2\u011b\u0118\3\2\2\2\u011b\u011a"+
-		"\3\2\2\2\u011c\u0123\3\2\2\2\u011d\u011e\f\6\2\2\u011e\u0122\7\6\2\2\u011f"+
-		"\u0120\f\5\2\2\u0120\u0122\5&\24\2\u0121\u011d\3\2\2\2\u0121\u011f\3\2"+
-		"\2\2\u0122\u0125\3\2\2\2\u0123\u0121\3\2\2\2\u0123\u0124\3\2\2\2\u0124"+
-		"%\3\2\2\2\u0125\u0123\3\2\2\2\u0126\u0127\7\7\2\2\u0127\'\3\2\2\2\27\64"+
-		"CN_a|\u009c\u009e\u00af\u00b8\u00bd\u00d9\u00e4\u00ee\u00f8\u00fd\u00ff"+
-		"\u010e\u011b\u0121\u0123";
+		"\4\23\t\23\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31\t\31"+
+		"\4\32\t\32\4\33\t\33\4\34\t\34\4\35\t\35\4\36\t\36\4\37\t\37\4 \t \4!"+
+		"\t!\4\"\t\"\4#\t#\4$\t$\4%\t%\4&\t&\4\'\t\'\4(\t(\4)\t)\4*\t*\4+\t+\4"+
+		",\t,\3\2\3\2\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\7\3c\n\3\f\3\16\3f\13\3\3"+
+		"\4\3\4\3\4\3\4\3\4\3\4\3\4\3\4\3\4\3\4\5\4r\n\4\3\5\3\5\3\5\3\6\3\6\3"+
+		"\6\3\6\3\7\3\7\3\b\3\b\3\b\3\b\3\b\3\b\3\b\3\b\3\b\5\b\u0086\n\b\3\t\3"+
+		"\t\5\t\u008a\n\t\3\n\3\n\3\n\3\n\3\n\5\n\u0091\n\n\3\13\3\13\3\13\3\13"+
+		"\3\13\3\13\7\13\u0099\n\13\f\13\16\13\u009c\13\13\3\f\3\f\3\f\3\r\3\r"+
+		"\3\r\3\r\3\r\3\r\3\r\3\r\3\r\3\r\3\r\3\r\5\r\u00ad\n\r\3\16\3\16\3\17"+
+		"\3\17\3\17\3\17\3\17\3\17\7\17\u00b7\n\17\f\17\16\17\u00ba\13\17\3\20"+
+		"\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20\3\20"+
+		"\3\20\3\20\3\20\3\20\5\20\u00cf\n\20\3\21\3\21\3\21\3\21\3\21\3\21\3\21"+
+		"\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21"+
+		"\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21\3\21"+
+		"\3\21\5\21\u00f5\n\21\3\22\3\22\3\22\3\22\3\22\3\22\3\23\3\23\3\23\3\23"+
+		"\3\23\3\23\3\24\3\24\3\24\3\24\3\24\3\24\3\24\3\24\5\24\u010b\n\24\3\24"+
+		"\3\24\3\24\3\24\3\24\3\24\3\24\3\24\3\24\3\24\7\24\u0117\n\24\f\24\16"+
+		"\24\u011a\13\24\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25"+
+		"\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\3\25\5\25\u0132\n\25"+
+		"\3\26\3\26\3\26\3\26\3\26\3\26\3\26\3\26\5\26\u013c\n\26\3\26\3\26\3\26"+
+		"\3\26\3\26\3\26\3\26\3\26\3\26\3\26\7\26\u0148\n\26\f\26\16\26\u014b\13"+
+		"\26\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\5\27\u0158"+
+		"\n\27\3\30\3\30\3\30\3\30\5\30\u015e\n\30\3\31\3\31\3\31\3\31\3\31\3\31"+
+		"\3\31\3\31\3\31\5\31\u0169\n\31\3\32\3\32\3\32\3\32\3\32\3\32\3\32\3\32"+
+		"\3\32\5\32\u0174\n\32\3\33\3\33\3\33\3\33\3\33\3\33\5\33\u017c\n\33\3"+
+		"\34\3\34\3\34\3\34\3\34\3\34\7\34\u0184\n\34\f\34\16\34\u0187\13\34\3"+
+		"\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3"+
+		"\35\5\35\u0198\n\35\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36"+
+		"\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\7\36\u01ad\n\36\f\36\16"+
+		"\36\u01b0\13\36\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37"+
+		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\5\37\u01c5\n\37\3\37\3\37\3\37"+
+		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37"+
+		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\7\37"+
+		"\u01e5\n\37\f\37\16\37\u01e8\13\37\3 \3 \3 \3 \3 \3 \3 \3 \3 \5 \u01f3"+
+		"\n \3 \3 \3 \3 \3 \7 \u01fa\n \f \16 \u01fd\13 \3!\3!\5!\u0201\n!\3\""+
+		"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3"+
+		"\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u0222\n\"\3\"\3"+
+		"\"\3\"\3\"\3\"\3\"\3\"\5\"\u022b\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5"+
+		"\"\u0235\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u0243"+
+		"\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u024d\n\"\3\"\3\"\3\"\3\"\3\""+
+		"\3\"\3\"\3\"\5\"\u0257\n\"\3\"\3\"\3\"\7\"\u025c\n\"\f\"\16\"\u025f\13"+
+		"\"\3#\3#\3$\3$\3$\3%\3%\3%\3&\3&\3&\3&\5&\u026d\n&\3\'\3\'\3(\3(\3)\3"+
+		")\3*\3*\3+\3+\3+\5+\u027a\n+\3+\3+\3+\3+\7+\u0280\n+\f+\16+\u0283\13+"+
+		"\3,\3,\3,\2\r\4\24\34&*\66:<>BT-\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36"+
+		" \"$&(*,.\60\62\64\668:<>@BDFHJLNPRTV\2\5\3\2&+\3\2\33\35\3\2\31\32\u02ab"+
+		"\2X\3\2\2\2\4Z\3\2\2\2\6q\3\2\2\2\bs\3\2\2\2\nv\3\2\2\2\fz\3\2\2\2\16"+
+		"\u0085\3\2\2\2\20\u0089\3\2\2\2\22\u0090\3\2\2\2\24\u0092\3\2\2\2\26\u009d"+
+		"\3\2\2\2\30\u00ac\3\2\2\2\32\u00ae\3\2\2\2\34\u00b0\3\2\2\2\36\u00ce\3"+
+		"\2\2\2 \u00f4\3\2\2\2\"\u00f6\3\2\2\2$\u00fc\3\2\2\2&\u010a\3\2\2\2(\u0131"+
+		"\3\2\2\2*\u013b\3\2\2\2,\u0157\3\2\2\2.\u015d\3\2\2\2\60\u0168\3\2\2\2"+
+		"\62\u0173\3\2\2\2\64\u017b\3\2\2\2\66\u017d\3\2\2\28\u0197\3\2\2\2:\u0199"+
+		"\3\2\2\2<\u01c4\3\2\2\2>\u01f2\3\2\2\2@\u0200\3\2\2\2B\u0221\3\2\2\2D"+
+		"\u0260\3\2\2\2F\u0262\3\2\2\2H\u0265\3\2\2\2J\u026c\3\2\2\2L\u026e\3\2"+
+		"\2\2N\u0270\3\2\2\2P\u0272\3\2\2\2R\u0274\3\2\2\2T\u0279\3\2\2\2V\u0284"+
+		"\3\2\2\2XY\5\4\3\2Y\3\3\2\2\2Z[\b\3\1\2[\\\5\6\4\2\\]\5T+\2]d\3\2\2\2"+
+		"^_\f\4\2\2_`\5\6\4\2`a\5T+\2ac\3\2\2\2b^\3\2\2\2cf\3\2\2\2db\3\2\2\2d"+
+		"e\3\2\2\2e\5\3\2\2\2fd\3\2\2\2gr\5\n\6\2hr\5\b\5\2ir\5 \21\2jr\5\"\22"+
+		"\2kl\5B\"\2lm\b\4\1\2mr\3\2\2\2nr\5\26\f\2or\5$\23\2pr\5(\25\2qg\3\2\2"+
+		"\2qh\3\2\2\2qi\3\2\2\2qj\3\2\2\2qk\3\2\2\2qn\3\2\2\2qo\3\2\2\2qp\3\2\2"+
+		"\2r\7\3\2\2\2st\7\b\2\2tu\5D#\2u\t\3\2\2\2vw\5\16\b\2wx\5\f\7\2xy\7\t"+
+		"\2\2y\13\3\2\2\2z{\5\4\3\2{\r\3\2\2\2|}\7\n\2\2}~\5\20\t\2~\177\5V,\2"+
+		"\177\u0086\3\2\2\2\u0080\u0081\7\n\2\2\u0081\u0082\5\20\t\2\u0082\u0083"+
+		"\5\22\n\2\u0083\u0084\5V,\2\u0084\u0086\3\2\2\2\u0085|\3\2\2\2\u0085\u0080"+
+		"\3\2\2\2\u0086\17\3\2\2\2\u0087\u008a\5R*\2\u0088\u008a\5N(\2\u0089\u0087"+
+		"\3\2\2\2\u0089\u0088\3\2\2\2\u008a\21\3\2\2\2\u008b\u008c\7\65\2\2\u008c"+
+		"\u008d\5\24\13\2\u008d\u008e\7\66\2\2\u008e\u0091\3\2\2\2\u008f\u0091"+
+		"\5\24\13\2\u0090\u008b\3\2\2\2\u0090\u008f\3\2\2\2\u0091\23\3\2\2\2\u0092"+
+		"\u0093\b\13\1\2\u0093\u0094\5N(\2\u0094\u009a\3\2\2\2\u0095\u0096\f\3"+
+		"\2\2\u0096\u0097\7\5\2\2\u0097\u0099\5N(\2\u0098\u0095\3\2\2\2\u0099\u009c"+
+		"\3\2\2\2\u009a\u0098\3\2\2\2\u009a\u009b\3\2\2\2\u009b\25\3\2\2\2\u009c"+
+		"\u009a\3\2\2\2\u009d\u009e\7\13\2\2\u009e\u009f\5B\"\2\u009f\27\3\2\2"+
+		"\2\u00a0\u00a1\5\20\t\2\u00a1\u00a2\7\65\2\2\u00a2\u00a3\5\32\16\2\u00a3"+
+		"\u00a4\7\66\2\2\u00a4\u00ad\3\2\2\2\u00a5\u00a6\5\20\t\2\u00a6\u00a7\5"+
+		"\32\16\2\u00a7\u00ad\3\2\2\2\u00a8\u00a9\5\20\t\2\u00a9\u00aa\7\65\2\2"+
+		"\u00aa\u00ab\7\66\2\2\u00ab\u00ad\3\2\2\2\u00ac\u00a0\3\2\2\2\u00ac\u00a5"+
+		"\3\2\2\2\u00ac\u00a8\3\2\2\2\u00ad\31\3\2\2\2\u00ae\u00af\5\34\17\2\u00af"+
+		"\33\3\2\2\2\u00b0\u00b1\b\17\1\2\u00b1\u00b2\5B\"\2\u00b2\u00b8\3\2\2"+
+		"\2\u00b3\u00b4\f\3\2\2\u00b4\u00b5\7\5\2\2\u00b5\u00b7\5B\"\2\u00b6\u00b3"+
+		"\3\2\2\2\u00b7\u00ba\3\2\2\2\u00b8\u00b6\3\2\2\2\u00b8\u00b9\3\2\2\2\u00b9"+
+		"\35\3\2\2\2\u00ba\u00b8\3\2\2\2\u00bb\u00bc\7\17\2\2\u00bc\u00bd\5B\""+
+		"\2\u00bd\u00be\5V,\2\u00be\u00bf\5\4\3\2\u00bf\u00cf\3\2\2\2\u00c0\u00c1"+
+		"\7\17\2\2\u00c1\u00c2\5B\"\2\u00c2\u00c3\5V,\2\u00c3\u00c4\5\4\3\2\u00c4"+
+		"\u00c5\7\16\2\2\u00c5\u00c6\5V,\2\u00c6\u00c7\5\4\3\2\u00c7\u00cf\3\2"+
+		"\2\2\u00c8\u00c9\7\17\2\2\u00c9\u00ca\5B\"\2\u00ca\u00cb\5V,\2\u00cb\u00cc"+
+		"\5\4\3\2\u00cc\u00cd\5\36\20\2\u00cd\u00cf\3\2\2\2\u00ce\u00bb\3\2\2\2"+
+		"\u00ce\u00c0\3\2\2\2\u00ce\u00c8\3\2\2\2\u00cf\37\3\2\2\2\u00d0\u00d1"+
+		"\7\f\2\2\u00d1\u00d2\5B\"\2\u00d2\u00d3\5V,\2\u00d3\u00d4\5\4\3\2\u00d4"+
+		"\u00d5\7\t\2\2\u00d5\u00f5\3\2\2\2\u00d6\u00d7\7\f\2\2\u00d7\u00d8\5B"+
+		"\"\2\u00d8\u00d9\7\r\2\2\u00d9\u00da\5\4\3\2\u00da\u00db\7\t\2\2\u00db"+
+		"\u00f5\3\2\2\2\u00dc\u00dd\7\f\2\2\u00dd\u00de\5B\"\2\u00de\u00df\5V,"+
+		"\2\u00df\u00e0\5\4\3\2\u00e0\u00e1\7\16\2\2\u00e1\u00e2\5V,\2\u00e2\u00e3"+
+		"\5\4\3\2\u00e3\u00e4\7\t\2\2\u00e4\u00f5\3\2\2\2\u00e5\u00e6\7\f\2\2\u00e6"+
+		"\u00e7\5B\"\2\u00e7\u00e8\7\r\2\2\u00e8\u00e9\5\4\3\2\u00e9\u00ea\7\16"+
+		"\2\2\u00ea\u00eb\5\4\3\2\u00eb\u00ec\7\t\2\2\u00ec\u00f5\3\2\2\2\u00ed"+
+		"\u00ee\7\f\2\2\u00ee\u00ef\5B\"\2\u00ef\u00f0\5V,\2\u00f0\u00f1\5\4\3"+
+		"\2\u00f1\u00f2\5\36\20\2\u00f2\u00f3\7\t\2\2\u00f3\u00f5\3\2\2\2\u00f4"+
+		"\u00d0\3\2\2\2\u00f4\u00d6\3\2\2\2\u00f4\u00dc\3\2\2\2\u00f4\u00e5\3\2"+
+		"\2\2\u00f4\u00ed\3\2\2\2\u00f5!\3\2\2\2\u00f6\u00f7\7\20\2\2\u00f7\u00f8"+
+		"\5B\"\2\u00f8\u00f9\5V,\2\u00f9\u00fa\5\4\3\2\u00fa\u00fb\7\t\2\2\u00fb"+
+		"#\3\2\2\2\u00fc\u00fd\7\21\2\2\u00fd\u00fe\5B\"\2\u00fe\u00ff\5V,\2\u00ff"+
+		"\u0100\5&\24\2\u0100\u0101\7\t\2\2\u0101%\3\2\2\2\u0102\u0103\b\24\1\2"+
+		"\u0103\u0104\5\6\4\2\u0104\u0105\5T+\2\u0105\u010b\3\2\2\2\u0106\u0107"+
+		"\7\22\2\2\u0107\u010b\5T+\2\u0108\u0109\7\23\2\2\u0109\u010b\5T+\2\u010a"+
+		"\u0102\3\2\2\2\u010a\u0106\3\2\2\2\u010a\u0108\3\2\2\2\u010b\u0118\3\2"+
+		"\2\2\u010c\u010d\f\5\2\2\u010d\u010e\5\6\4\2\u010e\u010f\5T+\2\u010f\u0117"+
+		"\3\2\2\2\u0110\u0111\f\4\2\2\u0111\u0112\7\22\2\2\u0112\u0117\5T+\2\u0113"+
+		"\u0114\f\3\2\2\u0114\u0115\7\23\2\2\u0115\u0117\5T+\2\u0116\u010c\3\2"+
+		"\2\2\u0116\u0110\3\2\2\2\u0116\u0113\3\2\2\2\u0117\u011a\3\2\2\2\u0118"+
+		"\u0116\3\2\2\2\u0118\u0119\3\2\2\2\u0119\'\3\2\2\2\u011a\u0118\3\2\2\2"+
+		"\u011b\u011c\7\24\2\2\u011c\u011d\7\65\2\2\u011d\u011e\5\6\4\2\u011e\u011f"+
+		"\7\6\2\2\u011f\u0120\5\6\4\2\u0120\u0121\7\6\2\2\u0121\u0122\5\6\4\2\u0122"+
+		"\u0123\7\66\2\2\u0123\u0124\5V,\2\u0124\u0125\5*\26\2\u0125\u0126\7\t"+
+		"\2\2\u0126\u0132\3\2\2\2\u0127\u0128\7\24\2\2\u0128\u0129\5\6\4\2\u0129"+
+		"\u012a\7\6\2\2\u012a\u012b\5\6\4\2\u012b\u012c\7\6\2\2\u012c\u012d\5\6"+
+		"\4\2\u012d\u012e\5V,\2\u012e\u012f\5*\26\2\u012f\u0130\7\t\2\2\u0130\u0132"+
+		"\3\2\2\2\u0131\u011b\3\2\2\2\u0131\u0127\3\2\2\2\u0132)\3\2\2\2\u0133"+
+		"\u0134\b\26\1\2\u0134\u0135\5\6\4\2\u0135\u0136\5T+\2\u0136\u013c\3\2"+
+		"\2\2\u0137\u0138\7\22\2\2\u0138\u013c\5T+\2\u0139\u013a\7\23\2\2\u013a"+
+		"\u013c\5T+\2\u013b\u0133\3\2\2\2\u013b\u0137\3\2\2\2\u013b\u0139\3\2\2"+
+		"\2\u013c\u0149\3\2\2\2\u013d\u013e\f\5\2\2\u013e\u013f\5\6\4\2\u013f\u0140"+
+		"\5T+\2\u0140\u0148\3\2\2\2\u0141\u0142\f\4\2\2\u0142\u0143\7\22\2\2\u0143"+
+		"\u0148\5T+\2\u0144\u0145\f\3\2\2\u0145\u0146\7\23\2\2\u0146\u0148\5T+"+
+		"\2\u0147\u013d\3\2\2\2\u0147\u0141\3\2\2\2\u0147\u0144\3\2\2\2\u0148\u014b"+
+		"\3\2\2\2\u0149\u0147\3\2\2\2\u0149\u014a\3\2\2\2\u014a+\3\2\2\2\u014b"+
+		"\u0149\3\2\2\2\u014c\u014d\7\26\2\2\u014d\u014e\5.\30\2\u014e\u014f\7"+
+		"\r\2\2\u014f\u0150\5\4\3\2\u0150\u0151\5,\27\2\u0151\u0158\3\2\2\2\u0152"+
+		"\u0153\7\26\2\2\u0153\u0154\5.\30\2\u0154\u0155\7\r\2\2\u0155\u0156\5"+
+		"\4\3\2\u0156\u0158\3\2\2\2\u0157\u014c\3\2\2\2\u0157\u0152\3\2\2\2\u0158"+
+		"-\3\2\2\2\u0159\u015a\5B\"\2\u015a\u015b\7\5\2\2\u015b\u015e\3\2\2\2\u015c"+
+		"\u015e\5B\"\2\u015d\u0159\3\2\2\2\u015d\u015c\3\2\2\2\u015e/\3\2\2\2\u015f"+
+		"\u0160\5@!\2\u0160\u0161\7%\2\2\u0161\u0162\5B\"\2\u0162\u0163\b\31\1"+
+		"\2\u0163\u0169\3\2\2\2\u0164\u0165\5@!\2\u0165\u0166\t\2\2\2\u0166\u0167"+
+		"\5B\"\2\u0167\u0169\3\2\2\2\u0168\u015f\3\2\2\2\u0168\u0164\3\2\2\2\u0169"+
+		"\61\3\2\2\2\u016a\u016b\5@!\2\u016b\u016c\5\64\33\2\u016c\u016d\7%\2\2"+
+		"\u016d\u016e\5B\"\2\u016e\u0174\3\2\2\2\u016f\u0170\5@!\2\u0170\u0171"+
+		"\7%\2\2\u0171\u0172\5\64\33\2\u0172\u0174\3\2\2\2\u0173\u016a\3\2\2\2"+
+		"\u0173\u016f\3\2\2\2\u0174\63\3\2\2\2\u0175\u0176\7\67\2\2\u0176\u0177"+
+		"\5\66\34\2\u0177\u0178\78\2\2\u0178\u017c\3\2\2\2\u0179\u017a\7\67\2\2"+
+		"\u017a\u017c\78\2\2\u017b\u0175\3\2\2\2\u017b\u0179\3\2\2\2\u017c\65\3"+
+		"\2\2\2\u017d\u017e\b\34\1\2\u017e\u017f\5B\"\2\u017f\u0185\3\2\2\2\u0180"+
+		"\u0181\f\3\2\2\u0181\u0182\7\5\2\2\u0182\u0184\5B\"\2\u0183\u0180\3\2"+
+		"\2\2\u0184\u0187\3\2\2\2\u0185\u0183\3\2\2\2\u0185\u0186\3\2\2\2\u0186"+
+		"\67\3\2\2\2\u0187\u0185\3\2\2\2\u0188\u0189\5N(\2\u0189\u018a\7\67\2\2"+
+		"\u018a\u018b\5B\"\2\u018b\u018c\78\2\2\u018c\u0198\3\2\2\2\u018d\u018e"+
+		"\5P)\2\u018e\u018f\7\67\2\2\u018f\u0190\5B\"\2\u0190\u0191\78\2\2\u0191"+
+		"\u0198\3\2\2\2\u0192\u0193\5\30\r\2\u0193\u0194\7\67\2\2\u0194\u0195\5"+
+		"B\"\2\u0195\u0196\78\2\2\u0196\u0198\3\2\2\2\u0197\u0188\3\2\2\2\u0197"+
+		"\u018d\3\2\2\2\u0197\u0192\3\2\2\2\u01989\3\2\2\2\u0199\u019a\b\36\1\2"+
+		"\u019a\u019b\5H%\2\u019b\u019c\b\36\1\2\u019c\u01ae\3\2\2\2\u019d\u019e"+
+		"\f\6\2\2\u019e\u019f\7\36\2\2\u019f\u01a0\5:\36\7\u01a0\u01a1\b\36\1\2"+
+		"\u01a1\u01ad\3\2\2\2\u01a2\u01a3\f\5\2\2\u01a3\u01a4\t\3\2\2\u01a4\u01a5"+
+		"\5:\36\6\u01a5\u01a6\b\36\1\2\u01a6\u01ad\3\2\2\2\u01a7\u01a8\f\4\2\2"+
+		"\u01a8\u01a9\t\4\2\2\u01a9\u01aa\5:\36\5\u01aa\u01ab\b\36\1\2\u01ab\u01ad"+
+		"\3\2\2\2\u01ac\u019d\3\2\2\2\u01ac\u01a2\3\2\2\2\u01ac\u01a7\3\2\2\2\u01ad"+
+		"\u01b0\3\2\2\2\u01ae\u01ac\3\2\2\2\u01ae\u01af\3\2\2\2\u01af;\3\2\2\2"+
+		"\u01b0\u01ae\3\2\2\2\u01b1\u01b2\b\37\1\2\u01b2\u01b3\5:\36\2\u01b3\u01b4"+
+		"\7\36\2\2\u01b4\u01b5\5<\37\13\u01b5\u01b6\b\37\1\2\u01b6\u01c5\3\2\2"+
+		"\2\u01b7\u01b8\5:\36\2\u01b8\u01b9\t\3\2\2\u01b9\u01ba\5<\37\b\u01ba\u01bb"+
+		"\b\37\1\2\u01bb\u01c5\3\2\2\2\u01bc\u01bd\5:\36\2\u01bd\u01be\t\4\2\2"+
+		"\u01be\u01bf\5<\37\5\u01bf\u01c0\b\37\1\2\u01c0\u01c5\3\2\2\2\u01c1\u01c2"+
+		"\5F$\2\u01c2\u01c3\b\37\1\2\u01c3\u01c5\3\2\2\2\u01c4\u01b1\3\2\2\2\u01c4"+
+		"\u01b7\3\2\2\2\u01c4\u01bc\3\2\2\2\u01c4\u01c1\3\2\2\2\u01c5\u01e6\3\2"+
+		"\2\2\u01c6\u01c7\f\f\2\2\u01c7\u01c8\7\36\2\2\u01c8\u01c9\5<\37\r\u01c9"+
+		"\u01ca\b\37\1\2\u01ca\u01e5\3\2\2\2\u01cb\u01cc\f\t\2\2\u01cc\u01cd\t"+
+		"\3\2\2\u01cd\u01ce\5<\37\n\u01ce\u01cf\b\37\1\2\u01cf\u01e5\3\2\2\2\u01d0"+
+		"\u01d1\f\6\2\2\u01d1\u01d2\t\4\2\2\u01d2\u01d3\5<\37\7\u01d3\u01d4\b\37"+
+		"\1\2\u01d4\u01e5\3\2\2\2\u01d5\u01d6\f\n\2\2\u01d6\u01d7\7\36\2\2\u01d7"+
+		"\u01d8\5:\36\2\u01d8\u01d9\b\37\1\2\u01d9\u01e5\3\2\2\2\u01da\u01db\f"+
+		"\7\2\2\u01db\u01dc\t\3\2\2\u01dc\u01dd\5:\36\2\u01dd\u01de\b\37\1\2\u01de"+
+		"\u01e5\3\2\2\2\u01df\u01e0\f\4\2\2\u01e0\u01e1\t\4\2\2\u01e1\u01e2\5:"+
+		"\36\2\u01e2\u01e3\b\37\1\2\u01e3\u01e5\3\2\2\2\u01e4\u01c6\3\2\2\2\u01e4"+
+		"\u01cb\3\2\2\2\u01e4\u01d0\3\2\2\2\u01e4\u01d5\3\2\2\2\u01e4\u01da\3\2"+
+		"\2\2\u01e4\u01df\3\2\2\2\u01e5\u01e8\3\2\2\2\u01e6\u01e4\3\2\2\2\u01e6"+
+		"\u01e7\3\2\2\2\u01e7=\3\2\2\2\u01e8\u01e6\3\2\2\2\u01e9\u01ea\b \1\2\u01ea"+
+		"\u01eb\5:\36\2\u01eb\u01ec\7\33\2\2\u01ec\u01ed\5> \4\u01ed\u01ee\b \1"+
+		"\2\u01ee\u01f3\3\2\2\2\u01ef\u01f0\5D#\2\u01f0\u01f1\b \1\2\u01f1\u01f3"+
+		"\3\2\2\2\u01f2\u01e9\3\2\2\2\u01f2\u01ef\3\2\2\2\u01f3\u01fb\3\2\2\2\u01f4"+
+		"\u01f5\f\5\2\2\u01f5\u01f6\7\33\2\2\u01f6\u01f7\5:\36\2\u01f7\u01f8\b"+
+		" \1\2\u01f8\u01fa\3\2\2\2\u01f9\u01f4\3\2\2\2\u01fa\u01fd\3\2\2\2\u01fb"+
+		"\u01f9\3\2\2\2\u01fb\u01fc\3\2\2\2\u01fc?\3\2\2\2\u01fd\u01fb\3\2\2\2"+
+		"\u01fe\u0201\5N(\2\u01ff\u0201\5P)\2\u0200\u01fe\3\2\2\2\u0200\u01ff\3"+
+		"\2\2\2\u0201A\3\2\2\2\u0202\u0203\b\"\1\2\u0203\u0204\5@!\2\u0204\u0205"+
+		"\b\"\1\2\u0205\u0222\3\2\2\2\u0206\u0207\5:\36\2\u0207\u0208\b\"\1\2\u0208"+
+		"\u0222\3\2\2\2\u0209\u020a\5<\37\2\u020a\u020b\b\"\1\2\u020b\u0222\3\2"+
+		"\2\2\u020c\u020d\5> \2\u020d\u020e\b\"\1\2\u020e\u0222\3\2\2\2\u020f\u0210"+
+		"\5\60\31\2\u0210\u0211\b\"\1\2\u0211\u0222\3\2\2\2\u0212\u0213\5J&\2\u0213"+
+		"\u0214\b\"\1\2\u0214\u0222\3\2\2\2\u0215\u0216\5L\'\2\u0216\u0217\b\""+
+		"\1\2\u0217\u0222\3\2\2\2\u0218\u0219\7\64\2\2\u0219\u021a\5B\"\t\u021a"+
+		"\u021b\b\"\1\2\u021b\u0222\3\2\2\2\u021c\u021d\7\65\2\2\u021d\u021e\5"+
+		"B\"\2\u021e\u021f\7\66\2\2\u021f\u0220\b\"\1\2\u0220\u0222\3\2\2\2\u0221"+
+		"\u0202\3\2\2\2\u0221\u0206\3\2\2\2\u0221\u0209\3\2\2\2\u0221\u020c\3\2"+
+		"\2\2\u0221\u020f\3\2\2\2\u0221\u0212\3\2\2\2\u0221\u0215\3\2\2\2\u0221"+
+		"\u0218\3\2\2\2\u0221\u021c\3\2\2\2\u0222\u025d\3\2\2\2\u0223\u0224\f\b"+
+		"\2\2\u0224\u022a\b\"\1\2\u0225\u022b\7\33\2\2\u0226\u0227\7\34\2\2\u0227"+
+		"\u022b\b\"\1\2\u0228\u0229\7\35\2\2\u0229\u022b\b\"\1\2\u022a\u0225\3"+
+		"\2\2\2\u022a\u0226\3\2\2\2\u022a\u0228\3\2\2\2\u022b\u022c\3\2\2\2\u022c"+
+		"\u022d\5B\"\t\u022d\u022e\b\"\1\2\u022e\u025c\3\2\2\2\u022f\u0230\f\7"+
+		"\2\2\u0230\u0234\b\"\1\2\u0231\u0235\7\31\2\2\u0232\u0233\7\32\2\2\u0233"+
+		"\u0235\b\"\1\2\u0234\u0231\3\2\2\2\u0234\u0232\3\2\2\2\u0235\u0236\3\2"+
+		"\2\2\u0236\u0237\5B\"\b\u0237\u0238\b\"\1\2\u0238\u025c\3\2\2\2\u0239"+
+		"\u023a\f\6\2\2\u023a\u0242\b\"\1\2\u023b\u0243\7\"\2\2\u023c\u023d\7!"+
+		"\2\2\u023d\u0243\b\"\1\2\u023e\u023f\7#\2\2\u023f\u0243\b\"\1\2\u0240"+
+		"\u0241\7$\2\2\u0241\u0243\b\"\1\2\u0242\u023b\3\2\2\2\u0242\u023c\3\2"+
+		"\2\2\u0242\u023e\3\2\2\2\u0242\u0240\3\2\2\2\u0243\u0244\3\2\2\2\u0244"+
+		"\u0245\5B\"\7\u0245\u0246\b\"\1\2\u0246\u025c\3\2\2\2\u0247\u0248\f\5"+
+		"\2\2\u0248\u024c\b\"\1\2\u0249\u024a\7\37\2\2\u024a\u024d\b\"\1\2\u024b"+
+		"\u024d\7 \2\2\u024c\u0249\3\2\2\2\u024c\u024b\3\2\2\2\u024d\u024e\3\2"+
+		"\2\2\u024e\u024f\5B\"\6\u024f\u0250\b\"\1\2\u0250\u025c\3\2\2\2\u0251"+
+		"\u0252\f\4\2\2\u0252\u0256\b\"\1\2\u0253\u0254\7\63\2\2\u0254\u0257\b"+
+		"\"\1\2\u0255\u0257\7\62\2\2\u0256\u0253\3\2\2\2\u0256\u0255\3\2\2\2\u0257"+
+		"\u0258\3\2\2\2\u0258\u0259\5B\"\5\u0259\u025a\b\"\1\2\u025a\u025c\3\2"+
+		"\2\2\u025b\u0223\3\2\2\2\u025b\u022f\3\2\2\2\u025b\u0239\3\2\2\2\u025b"+
+		"\u0247\3\2\2\2\u025b\u0251\3\2\2\2\u025c\u025f\3\2\2\2\u025d\u025b\3\2"+
+		"\2\2\u025d\u025e\3\2\2\2\u025eC\3\2\2\2\u025f\u025d\3\2\2\2\u0260\u0261"+
+		"\7\4\2\2\u0261E\3\2\2\2\u0262\u0263\7>\2\2\u0263\u0264\b$\1\2\u0264G\3"+
+		"\2\2\2\u0265\u0266\7=\2\2\u0266\u0267\b%\1\2\u0267I\3\2\2\2\u0268\u0269"+
+		"\7\27\2\2\u0269\u026d\b&\1\2\u026a\u026b\7\30\2\2\u026b\u026d\b&\1\2\u026c"+
+		"\u0268\3\2\2\2\u026c\u026a\3\2\2\2\u026dK\3\2\2\2\u026e\u026f\79\2\2\u026f"+
+		"M\3\2\2\2\u0270\u0271\7?\2\2\u0271O\3\2\2\2\u0272\u0273\7@\2\2\u0273Q"+
+		"\3\2\2\2\u0274\u0275\7A\2\2\u0275S\3\2\2\2\u0276\u0277\b+\1\2\u0277\u027a"+
+		"\7\6\2\2\u0278\u027a\5V,\2\u0279\u0276\3\2\2\2\u0279\u0278\3\2\2\2\u027a"+
+		"\u0281\3\2\2\2\u027b\u027c\f\6\2\2\u027c\u0280\7\6\2\2\u027d\u027e\f\5"+
+		"\2\2\u027e\u0280\5V,\2\u027f\u027b\3\2\2\2\u027f\u027d\3\2\2\2\u0280\u0283"+
+		"\3\2\2\2\u0281\u027f\3\2\2\2\u0281\u0282\3\2\2\2\u0282U\3\2\2\2\u0283"+
+		"\u0281\3\2\2\2\u0284\u0285\7\7\2\2\u0285W\3\2\2\2.dq\u0085\u0089\u0090"+
+		"\u009a\u00ac\u00b8\u00ce\u00f4\u010a\u0116\u0118\u0131\u013b\u0147\u0149"+
+		"\u0157\u015d\u0168\u0173\u017b\u0185\u0197\u01ac\u01ae\u01c4\u01e4\u01e6"+
+		"\u01f2\u01fb\u0200\u0221\u022a\u0234\u0242\u024c\u0256\u025b\u025d\u026c"+
+		"\u0279\u027f\u0281";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {

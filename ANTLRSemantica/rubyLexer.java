@@ -101,13 +101,69 @@ public class rubyLexer extends Lexer {
 	}
 
 
+		/*Tabla de variables*/
 		Hashtable<String,VarInfo> varTable=new Hashtable<String,VarInfo>();
 		
+		/*Funciones auxiliares*/
+		
+		/*Devuelve el valor booleano de un tipo según el funcionamiento de los mismos en ruby*/
 		private boolean getBoolean(VarInfo var){
 			boolean r=true;
 			if(var.getType()==VarInfo.NIL_TYPE) r=false;
 			else if(var.getType()==VarInfo.NIL_TYPE) r=(boolean) var.getContent();
 			return r;
+		}
+		
+		/*Multiplica un entero por un String y devuelve un objeto VarInfo con el resultado*/
+		private VarInfo multString(String s, int n){
+			if(n<0)
+				return new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
+			else{
+				String f="";
+				for(int i=0;i<n;i++)
+					f+=s;
+				return new VarInfo(VarInfo.STRING_TYPE,f);
+			}
+		}
+		
+		/*Si i1 e i2 son un error, los combina y los devuelve como un error nuevo, si no, devuelve el que era un error*/
+		private VarInfo handleError(VarInfo i1, VarInfo i2){
+			VarInfo r=null;
+			if(i1.getType()==VarInfo.ERROR && i2.getType()==VarInfo.ERROR)
+				r= new VarInfo(VarInfo.ERROR, ((String) i1.getContent()) + "; " + ((String) i2.getContent()));
+			else if(i1.getType()==VarInfo.ERROR)
+				r= i1;
+			else
+				r= i2;
+			return r;
+		}
+		
+		/*Divide un número entre otro y devuelve un objeto VarInfo con el resultado, teniendo en cuenta la posibilidad de error al dividir entre 0*/
+		private VarInfo divide(Number i1, Number i2, int resultType){
+			if(resultType==VarInfo.FLOAT_TYPE)
+				return new VarInfo(resultType, i1.doubleValue()/i2.doubleValue());
+			else if(resultType==VarInfo.INT_TYPE){
+				if(i2.intValue()==0)
+					return new VarInfo(VarInfo.ERROR, "División entre 0 en enteros");
+				else
+					return new VarInfo(resultType, i1.intValue()/i1.intValue());
+			}
+			else
+				return new VarInfo(VarInfo.ERROR, "Error desconocido");
+		}
+		/*Aplica la operación módulo entre los números entrantes y devuelve un objeto VarInfo con el resultado, teniendo en cuenta la posibilidad de error al dividir entre 0*/
+		private VarInfo module(Number i1, Number i2, int resultType){
+			if(i2.doubleValue()!=0){
+				if(resultType==VarInfo.FLOAT_TYPE)
+					return new VarInfo(resultType, i1.doubleValue()%i2.doubleValue());
+				else if(resultType==VarInfo.INT_TYPE){
+					return new VarInfo(resultType, i1.intValue()/i1.intValue());
+				}
+				else
+					return new VarInfo(VarInfo.ERROR, "Error desconocido");
+			}
+			else
+				return new VarInfo(VarInfo.ERROR, "División entre 0 en operación módulo");
 		}
 
 

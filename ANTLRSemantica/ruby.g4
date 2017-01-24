@@ -7,13 +7,69 @@ grammar ruby;
 }
 
 @members{
+	/*Tabla de variables*/
 	Hashtable<String,VarInfo> varTable=new Hashtable<String,VarInfo>();
 	
+	/*Funciones auxiliares*/
+	
+	/*Devuelve el valor booleano de un tipo según el funcionamiento de los mismos en ruby*/
 	private boolean getBoolean(VarInfo var){
 		boolean r=true;
 		if(var.getType()==VarInfo.NIL_TYPE) r=false;
 		else if(var.getType()==VarInfo.NIL_TYPE) r=(boolean) var.getContent();
 		return r;
+	}
+	
+	/*Multiplica un entero por un String y devuelve un objeto VarInfo con el resultado*/
+	private VarInfo multString(String s, int n){
+		if(n<0)
+			return new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
+		else{
+			String f="";
+			for(int i=0;i<n;i++)
+				f+=s;
+			return new VarInfo(VarInfo.STRING_TYPE,f);
+		}
+	}
+	
+	/*Si i1 e i2 son un error, los combina y los devuelve como un error nuevo, si no, devuelve el que era un error*/
+	private VarInfo handleError(VarInfo i1, VarInfo i2){
+		VarInfo r=null;
+		if(i1.getType()==VarInfo.ERROR && i2.getType()==VarInfo.ERROR)
+			r= new VarInfo(VarInfo.ERROR, ((String) i1.getContent()) + "; " + ((String) i2.getContent()));
+		else if(i1.getType()==VarInfo.ERROR)
+			r= i1;
+		else
+			r= i2;
+		return r;
+	}
+	
+	/*Divide un número entre otro y devuelve un objeto VarInfo con el resultado, teniendo en cuenta la posibilidad de error al dividir entre 0*/
+	private VarInfo divide(Number i1, Number i2, int resultType){
+		if(resultType==VarInfo.FLOAT_TYPE)
+			return new VarInfo(resultType, i1.doubleValue()/i2.doubleValue());
+		else if(resultType==VarInfo.INT_TYPE){
+			if(i2.intValue()==0)
+				return new VarInfo(VarInfo.ERROR, "División entre 0 en enteros");
+			else
+				return new VarInfo(resultType, i1.intValue()/i1.intValue());
+		}
+		else
+			return new VarInfo(VarInfo.ERROR, "Error desconocido");
+	}
+	/*Aplica la operación módulo entre los números entrantes y devuelve un objeto VarInfo con el resultado, teniendo en cuenta la posibilidad de error al dividir entre 0*/
+	private VarInfo module(Number i1, Number i2, int resultType){
+		if(i2.doubleValue()!=0){
+			if(resultType==VarInfo.FLOAT_TYPE)
+				return new VarInfo(resultType, i1.doubleValue()%i2.doubleValue());
+			else if(resultType==VarInfo.INT_TYPE){
+				return new VarInfo(resultType, i1.intValue()/i1.intValue());
+			}
+			else
+				return new VarInfo(VarInfo.ERROR, "Error desconocido");
+		}
+		else
+			return new VarInfo(VarInfo.ERROR, "División entre 0 en operación módulo");
 	}
 }
 
@@ -25,8 +81,101 @@ expression_list : expression_list expression terminator
          | expression terminator;
 
 /*expression*/
-expression : rvalue {System.out.println($rvalue.text+" -> "+$rvalue.info);}
+expression : function_definition
+| require_block
+| if_statement
+| unless_statement
+|rvalue {System.out.println($rvalue.text+" -> "+$rvalue.info);}
+| return_statement
+| while_statement
+| for_statement
 ;
+
+/*require*/
+require_block : REQUIRE literal_t;
+
+/*function definition*/
+function_definition : function_definition_header function_definition_body END;
+/*function body definition*/
+function_definition_body : expression_list;
+/*function header definition*/
+function_definition_header : DEF function_name crlf
+| DEF function_name function_definition_params crlf
+;
+
+/*function name*/
+function_name : id_function
+| id
+;
+/*function definition parameters*/
+function_definition_params : LEFT_RBRACKET function_definition_params_list RIGHT_RBRACKET
+| function_definition_params_list
+;
+
+/*function definition parameters list*/
+function_definition_params_list : id
+| function_definition_params_list COMMA id
+;
+
+/*return*/
+return_statement : RETURN rvalue;
+function_call : function_name LEFT_RBRACKET function_call_param_list RIGHT_RBRACKET
+| function_name function_call_param_list
+| function_name LEFT_RBRACKET RIGHT_RBRACKET
+;
+/*function call parameters*/
+function_call_param_list : function_call_params;
+function_call_params : rvalue
+| function_call_params COMMA rvalue
+;
+/*if elsif*/
+if_elsif_statement : ELSIF rvalue crlf expression_list
+| ELSIF rvalue crlf expression_list ELSE crlf expression_list
+| ELSIF rvalue crlf expression_list if_elsif_statement
+;
+/*if*/
+if_statement : IF rvalue crlf expression_list END
+| IF rvalue THEN expression_list END
+| IF rvalue crlf expression_list ELSE crlf expression_list END
+| IF rvalue THEN expression_list ELSE expression_list END
+| IF rvalue crlf expression_list if_elsif_statement END;
+
+/*unless*/
+unless_statement : UNLESS rvalue crlf expression_list END;
+
+/*while*/
+while_statement : WHILE rvalue crlf while_expression_list END;
+while_expression_list : expression terminator
+| RETRY terminator
+| BREAK terminator
+| while_expression_list expression terminator
+| while_expression_list RETRY terminator
+| while_expression_list BREAK terminator
+;
+
+/*for*/
+for_statement : FOR LEFT_RBRACKET expression SEMICOLON expression SEMICOLON expression
+RIGHT_RBRACKET crlf for_expression_list END
+| FOR expression SEMICOLON expression SEMICOLON expression crlf for_expression_list
+END
+;
+for_expression_list : expression terminator
+| RETRY terminator
+| BREAK terminator
+| for_expression_list expression terminator
+| for_expression_list RETRY terminator
+| for_expression_list BREAK terminator
+;
+
+/*case_statement : CASE content_case END;
+
+content_case : lvalue when_list ELSE expression_list | lvalue when_list;*/
+
+/*when*/
+when_list : WHEN rvalue_list THEN expression_list when_list| WHEN rvalue_list THEN expression_list;
+
+/*rvalue list*/
+rvalue_list : rvalue COMMA | rvalue;
 
 /*assignment*/
 assignment returns [VarInfo info]: lvalue ASSIGN rvalue {$info=$rvalue.info;varTable.put($lvalue.text, $rvalue.info); System.out.println("Asignación a "+$lvalue.text+" de ("+$rvalue.info+")");}
@@ -42,156 +191,110 @@ assignment returns [VarInfo info]: lvalue ASSIGN rvalue {$info=$rvalue.info;varT
 }*/
 ;
 
+/*array*/
+array_assignment : lvalue array_definition ASSIGN rvalue
+| lvalue ASSIGN array_definition
+;
+array_definition : LEFT_SBRACKET array_definition_elements RIGHT_SBRACKET
+| LEFT_SBRACKET RIGHT_SBRACKET
+;
+array_definition_elements : rvalue
+| array_definition_elements COMMA rvalue
+;
+array_selector : id LEFT_SBRACKET rvalue RIGHT_SBRACKET
+| id_global LEFT_SBRACKET rvalue RIGHT_SBRACKET
+| function_call LEFT_SBRACKET rvalue RIGHT_SBRACKET
+;
+
 /*int_result*/
 int_result returns [VarInfo info] : i1=int_result EXP i2=int_result{
-	if($i1.info.getType()==VarInfo.ERROR && $i2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $i1.info.getContent()) + "; " + ((String) $i2.info.getContent()));
-	else if($i1.info.getType()==VarInfo.ERROR)
-		$info=$i1.info;
-	else if($i2.info.getType()==VarInfo.ERROR)
-		$info=$i2.info;
+	if($i1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
+		$info=handleError($i1.info,$i2.info);
 	else 
 		$info=new VarInfo(VarInfo.INT_TYPE, (int) Math.pow((int)$i1.info.getContent(),(int)$i2.info.getContent()));
 }
 |i1=int_result signo=( MUL | DIV | MOD ) i2=int_result {
-	if($i1.info.getType()==VarInfo.ERROR && $i2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $i1.info.getContent()) + "; " + ((String) $i2.info.getContent()));
-	else if($i1.info.getType()==VarInfo.ERROR)
-		$info=$i1.info;
-	else if($i2.info.getType()==VarInfo.ERROR)
-		$info=$i2.info;
+	if($i1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
+		$info=handleError($i1.info,$i2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("MUL"))
 		$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()*(Integer)$i2.info.getContent());
-	else{
-		if((Integer)$i2.info.getContent()==0)
-			$info= new VarInfo(VarInfo.ERROR,"División por 0");
-		else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
-			$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()/(Integer)$i2.info.getContent());
-		else
-			$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()%(Integer)$i2.info.getContent());
-	}
+	else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
+			$info=divide((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.INT_TYPE);
+	else
+			$info=module((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.INT_TYPE);
 }
 | i1=int_result signo=( PLUS | MINUS ) i2=int_result {
-	if($i1.info.getType()==VarInfo.ERROR && $i2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $i1.info.getContent()) + "; " + ((String) $i2.info.getContent()));
-	else if($i1.info.getType()==VarInfo.ERROR)
-		$info=$i1.info;
-	else if($i2.info.getType()==VarInfo.ERROR)
-		$info=$i2.info;
+	if($i1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
+		$info=handleError($i1.info,$i2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("PLUS"))
 		$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()+(Integer)$i2.info.getContent());
 	else{
 		$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()-(Integer)$i2.info.getContent());
 	}
 }
-| LEFT_RBRACKET int_result RIGHT_RBRACKET {$info=$int_result.info;}
 | int_t{$info=new VarInfo(VarInfo.INT_TYPE,$int_t.value);};
 
 /*float_result*/
 float_result returns [VarInfo info]: f1=float_result EXP f2=float_result{
-	if($f1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $f1.info.getContent()) + "; " + ((String) $f2.info.getContent()));
-	else if($f1.info.getType()==VarInfo.ERROR)
-		$info=$f1.info;
-	else if($f2.info.getType()==VarInfo.ERROR)
-		$info=$f2.info;
+	if($f1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
+		$info=handleError($f1.info,$f2.info);
 	else 
 		$info=new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)$f1.info.getContent(),(double)$f2.info.getContent()));
 }
 |i1=int_result EXP f2=float_result{
-	if($i1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $i1.info.getContent()) + "; " + ((String) $f2.info.getContent()));
-	else if($i1.info.getType()==VarInfo.ERROR)
-		$info=$i1.info;
-	else if($f2.info.getType()==VarInfo.ERROR)
-		$info=$f2.info;
+	if($i1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
+		$info=handleError($i1.info,$f2.info);
 	else 
 		$info=new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((int)$i1.info.getContent(),(double)$f2.info.getContent()));
 }
 |f1=float_result EXP i2=int_result{
-	if($f1.info.getType()==VarInfo.ERROR && $i2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $f1.info.getContent()) + "; " + ((String) $i2.info.getContent()));
-	else if($f1.info.getType()==VarInfo.ERROR)
-		$info=$f1.info;
-	else if($i2.info.getType()==VarInfo.ERROR)
-		$info=$i2.info;
+	if($f1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
+		$info=handleError($f1.info,$i2.info);
 	else 
 		$info=new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)$f1.info.getContent(),(int)$i2.info.getContent()));
 }
 |f1=float_result signo=( MUL | DIV | MOD ) f2=float_result {
 	if($f1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $f1.info.getContent()) + "; " + ((String) $f2.info.getContent()));
-	else if($f1.info.getType()==VarInfo.ERROR)
-		$info=$f1.info;
-	else if($f2.info.getType()==VarInfo.ERROR)
-		$info=$f2.info;
+		$info=handleError($f1.info,$f2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("MUL"))
 		$info=new VarInfo(VarInfo.FLOAT_TYPE,(Double) $f1.info.getContent()* (Double) $f2.info.getContent());
-	else{
-		if((Double)$f2.info.getContent()==0)
-			$info= new VarInfo(VarInfo.ERROR,"División por 0");
-		else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
-			$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()/(Double)$f2.info.getContent());
-		else
-			$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()%(Double)$f2.info.getContent());
-	}
+	else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
+			$info=divide((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.FLOAT_TYPE);
+	else
+			$info=module((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.FLOAT_TYPE);
 }
 | i1=int_result signo=( MUL | DIV | MOD ) f2=float_result{
-	if($i1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $i1.info.getContent()) + "; " + ((String) $f2.info.getContent()));
-	else if($i1.info.getType()==VarInfo.ERROR)
-		$info=$i1.info;
-	else if($f2.info.getType()==VarInfo.ERROR)
-		$info=$f2.info;
+	if($i1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
+		$info=handleError($i1.info,$f2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("MUL"))
 		$info=new VarInfo(VarInfo.FLOAT_TYPE,(Double) $i1.info.getContent()* (Double) $f2.info.getContent());
-	else{
-		if((Double)$f2.info.getContent()==0)
-			$info= new VarInfo(VarInfo.ERROR,"División por 0");
-		else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
-			$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()/(Double)$f2.info.getContent());
-		else
-			$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()%(Double)$f2.info.getContent());
-	}
+	else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
+		$info=divide((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.FLOAT_TYPE);
+	else
+		$info=module((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.FLOAT_TYPE);
 }
 | f1=float_result signo=( MUL | DIV | MOD ) i2=int_result{
-	if($f1.info.getType()==VarInfo.ERROR && $i2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $f1.info.getContent()) + "; " + ((String) $i2.info.getContent()));
-	else if($f1.info.getType()==VarInfo.ERROR)
-		$info=$f1.info;
-	else if($i2.info.getType()==VarInfo.ERROR)
-		$info=$i2.info;
+	if($f1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
+		$info=handleError($f1.info,$i2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("MUL"))
 		$info=new VarInfo(VarInfo.FLOAT_TYPE,(Double) $f1.info.getContent()* (Double) $i2.info.getContent());
-	else{
-		if((Integer)$i2.info.getContent()==0)
-			$info= new VarInfo(VarInfo.ERROR,"División por 0");
-		else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
-			$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()/(Integer)$i2.info.getContent());
-		else
-			$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()%(Integer)$i2.info.getContent());
-	}
+	else if(getVocabulary().getSymbolicName($signo.type).equals("DIV"))
+		$info=divide((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.FLOAT_TYPE);
+	else
+		$info=module((Number) $i1.info.getContent(),(Number) $i2.info.getContent(),VarInfo.FLOAT_TYPE);
 }
 | f1=float_result signo=( PLUS | MINUS ) f2=float_result{
-	if($f1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $f1.info.getContent()) + "; " + ((String) $f2.info.getContent()));
-	else if($f1.info.getType()==VarInfo.ERROR)
-		$info=$f1.info;
-	else if($f2.info.getType()==VarInfo.ERROR)
-		$info=$f2.info;
+	if($f1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
+		$info=handleError($f1.info,$f2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("PLUS"))
-		$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()+(Double)$f2.info.getContent());
+		$info=new VarInfo(VarInfo.FLOAT_TYPE,(Double)$f1.info.getContent()+(Double)$f2.info.getContent());
 	else{
-		$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()-(Double)$f2.info.getContent());
+		$info=new VarInfo(VarInfo.FLOAT_TYPE,(Double)$f1.info.getContent()-(Double)$f2.info.getContent());
 	}
 }
 | i1=int_result signo=( PLUS | MINUS ) f2=float_result{
-	if($i1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $i1.info.getContent()) + "; " + ((String) $f2.info.getContent()));
-	else if($i1.info.getType()==VarInfo.ERROR)
-		$info=$i1.info;
-	else if($f2.info.getType()==VarInfo.ERROR)
-		$info=$f2.info;
+	if($i1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
+		$info=handleError($i1.info,$f2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("PLUS"))
 		$info=new VarInfo(VarInfo.INT_TYPE,(Integer)$i1.info.getContent()+(Double)$f2.info.getContent());
 	else{
@@ -199,66 +302,36 @@ float_result returns [VarInfo info]: f1=float_result EXP f2=float_result{
 	}
 }
 | f1=float_result signo=( PLUS | MINUS ) i2=int_result{
-	if($f1.info.getType()==VarInfo.ERROR && $i2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $f1.info.getContent()) + "; " + ((String) $i2.info.getContent()));
-	else if($f1.info.getType()==VarInfo.ERROR)
-		$info=$f1.info;
-	else if($i2.info.getType()==VarInfo.ERROR)
-		$info=$i2.info;
+	if($f1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
+		$info=handleError($f1.info,$i2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("PLUS"))
 		$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()+(Integer)$i2.info.getContent());
 	else{
 		$info=new VarInfo(VarInfo.INT_TYPE,(Double)$f1.info.getContent()-(Integer)$i2.info.getContent());
 	}
 }
-| LEFT_RBRACKET float_result RIGHT_RBRACKET {$info=$float_result.info;}
 | float_t {$info=new VarInfo(VarInfo.FLOAT_TYPE,$float_t.value);}
 ;
 
 /* String Result */
 string_result returns [VarInfo info]: string_result MUL int_result {
-	if($int_result.info.getType()==VarInfo.ERROR && $string_result.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $int_result.info.getContent()) + "; " + ((String) $string_result.info.getContent()));
-	else if($int_result.info.getType()==VarInfo.ERROR)
-		$info=$int_result.info;
-	else if($string_result.info.getType()==VarInfo.ERROR)
-		$info=$string_result.info;
+	if($int_result.info.getType()==VarInfo.ERROR || $string_result.info.getType()==VarInfo.ERROR)
+		$info=handleError($int_result.info,$string_result.info);
 	else{
 		int n=(Integer) $int_result.info.getContent();
 		String s=(String) $string_result.info.getContent();
-		if(n<0)
-			$info=new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
-		else{
-			String f="";
-			for(int i=0;i<n;i++){
-				f+=s;
-			}
-			$info=new VarInfo(VarInfo.STRING_TYPE,f);
-		}
+		$info=multString(s,n);
 	}
 }
 | int_result MUL string_result {
-	if($int_result.info.getType()==VarInfo.ERROR && $string_result.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $int_result.info.getContent()) + "; " + ((String) $string_result.info.getContent()));
-	else if($int_result.info.getType()==VarInfo.ERROR)
-		$info=$int_result.info;
-	else if($string_result.info.getType()==VarInfo.ERROR)
-		$info=$string_result.info;
+	if($int_result.info.getType()==VarInfo.ERROR || $string_result.info.getType()==VarInfo.ERROR)
+		$info=handleError($int_result.info,$string_result.info);
 	else{
 		int n=(Integer) $int_result.info.getContent();
 		String s=(String) $string_result.info.getContent();
-		if(n<0)
-			$info=new VarInfo(VarInfo.ERROR, "Un String no se puede multiplicar por un número negativo");
-		else{
-			String f="";
-			for(int i=0;i<n;i++){
-				f+=s;
-			}
-			$info=new VarInfo(VarInfo.STRING_TYPE,f);
-		}
+		$info=multString(s,n);
 	}
 }
-| LEFT_RBRACKET string_result RIGHT_RBRACKET {$info=$string_result.info;}
 | literal_t {$info=new VarInfo(VarInfo.STRING_TYPE, $literal_t.text.substring(1,$literal_t.text.length()-1));}
 ;
 
@@ -281,14 +354,70 @@ rvalue returns [VarInfo info]: lvalue {if(varTable.containsKey($lvalue.text)) $i
 	else
 		$info=new VarInfo(VarInfo.BOOL_TYPE,!getBoolean($rvalue.info));
 }
+| r1=rvalue{int operation=0;} ( MUL | DIV{operation=1;} | MOD{operation=2;} ) r2=rvalue{
+	VarInfo info1=$r1.info, info2=$r2.info;
+	if((info1.getType()==VarInfo.INT_TYPE||info1.getType()==VarInfo.FLOAT_TYPE) && (info2.getType()==VarInfo.INT_TYPE||info2.getType()==VarInfo.FLOAT_TYPE)){
+		int resultType=VarInfo.FLOAT_TYPE;
+		if(info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.INT_TYPE){
+			resultType=VarInfo.INT_TYPE;
+		}
+		switch(operation){
+		case 0:
+			if(resultType==VarInfo.INT_TYPE)
+				$info=new VarInfo(resultType,((int)info1.getContent())*((int)info2.getContent()));
+			else
+				$info=new VarInfo(resultType,((Number)info1.getContent()).doubleValue()*((Number)info2.getContent()).doubleValue());
+		break;
+		case 1:
+			$info=divide((Number) info1.getContent(),(Number) info1.getContent(),resultType);
+		break;
+		case 2:
+			$info=module((Number) info1.getContent(),(Number) info1.getContent(),resultType);
+		break;
+		}
+	}
+	else if(((info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.STRING_TYPE)||(info2.getType()==VarInfo.INT_TYPE && info1.getType()==VarInfo.STRING_TYPE))&&operation==0){
+		if(info1.getType()==VarInfo.INT_TYPE)
+			$info=multString((String) info2.getContent(),(int) info1.getContent());
+		else
+			$info=multString((String) info1.getContent(),(int) info2.getContent());
+	}
+	else if(info1.getType()==VarInfo.ERROR || info2.getType()==VarInfo.ERROR)
+		$info=handleError(info1,info2);
+	else $info=new VarInfo(VarInfo.ERROR,"Tipos incompatibles para esa operación");
+}
+| r1=rvalue{int operation=0;} ( PLUS | MINUS{operation=1;} ) r2=rvalue{
+	VarInfo info1=$r1.info, info2=$r2.info;
+	if((info1.getType()==VarInfo.INT_TYPE||info1.getType()==VarInfo.FLOAT_TYPE) && (info2.getType()==VarInfo.INT_TYPE||info2.getType()==VarInfo.FLOAT_TYPE)){
+		int resultType=VarInfo.FLOAT_TYPE;
+		if(info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.INT_TYPE)
+			resultType=VarInfo.INT_TYPE;
+		switch(operation){
+		case 0:
+			if(resultType==VarInfo.INT_TYPE)
+				$info=new VarInfo(resultType,((int)info1.getContent())+((int)info2.getContent()));
+			else
+				$info=new VarInfo(resultType,((Number)info1.getContent()).doubleValue()+((Number)info2.getContent()).doubleValue());
+		break;
+		case 1:
+			if(resultType==VarInfo.INT_TYPE)
+				$info=new VarInfo(resultType,((int)info1.getContent())-((int)info2.getContent()));
+			else
+				$info=new VarInfo(resultType,((Number)info1.getContent()).doubleValue()-((Number)info2.getContent()).doubleValue());
+		break;
+		}
+	}
+	else if(info1.getType()==VarInfo.STRING_TYPE && info2.getType()==VarInfo.STRING_TYPE&& operation==0){
+		$info=new VarInfo(VarInfo.STRING_TYPE,((String) info1.getContent())+((String) info2.getContent()));
+	}
+	else if(info1.getType()==VarInfo.ERROR || info2.getType()==VarInfo.ERROR)
+		$info=handleError(info1,info2);
+	else $info=new VarInfo(VarInfo.ERROR,"Tipos incompatibles para esa operación");
+}
 | r1=rvalue{int selector=0;} ( LESS | GREATER{selector=1;} | LESS_EQUAL{selector=2;} | GREATER_EQUAL{selector=3;} ) r2=rvalue{
 	boolean val=false;
-	if($r1.info.getType()==VarInfo.ERROR && $r2.info.getType()==VarInfo.ERROR)
-		$info=new VarInfo(VarInfo.ERROR, ((String) $r1.info.getContent()) + "; " + ((String) $r2.info.getContent()));
-	else if($r1.info.getType()==VarInfo.ERROR)
-		$info=$r1.info;
-	else if($r2.info.getType()==VarInfo.ERROR)
-		$info=$r2.info;
+	if($r1.info.getType()==VarInfo.ERROR || $r2.info.getType()==VarInfo.ERROR)
+		$info=handleError($r1.info,$r1.info);
 	else{
 		if($r1.info.getType()==$r2.info.getType() && !($r1.info.getType()==VarInfo.NIL_TYPE)){
 			int comp=((Comparable) $r1.info.getContent()).compareTo($r2.info.getContent());
@@ -363,6 +492,7 @@ rvalue returns [VarInfo info]: lvalue {if(varTable.containsKey($lvalue.text)) $i
 	else if(modeOr)$info=new VarInfo(VarInfo.BOOL_TYPE,getBoolean($r1.info) || getBoolean($r2.info));
 	else $info=new VarInfo(VarInfo.BOOL_TYPE,getBoolean($r1.info) && getBoolean($r2.info));
 }
+| LEFT_RBRACKET rvalue RIGHT_RBRACKET {$info=$rvalue.info;}
 ;
 
 /* Types*/
@@ -374,8 +504,11 @@ bool_t returns [boolean value]: TRUE {$value=true;}
 nil_t: NIL;
 id : ID;
 
+/*ids*/
 id_global : ID_GLOBAL;
 id_function : ID_FUNCTION;
+
+/*terminator*/
 terminator : terminator SEMICOLON
 | terminator crlf
 | SEMICOLON
@@ -384,6 +517,7 @@ terminator : terminator SEMICOLON
 crlf : CRLF
 ;
 
+/*tokens*/
 ESCAPED_QUOTE : '\\"';
 LITERAL : '"' ( ESCAPED_QUOTE | ~('\n'|'\r') )*? '"'
 | '\'' ( ESCAPED_QUOTE | ~('\n'|'\r') )*? '\'';
