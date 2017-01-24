@@ -1,50 +1,52 @@
 import java_cup.runtime.*;
+import java.util.Hashtable;
 
 
 action code {:
-    private final int PLUS = 1;
-    private final int MINUS = 2;
-    private final int DIV = 3;
-    private final int MUL = 4;
-    private final int EXP = 5;
-    private final int MOD = 6;
+  Hashtable<String, VarInfo> varTable = new Hashtable<String,VarInfo>();
 
-    private VarInfo calcVarInfo_int_result(VarInfo num1, VarInfo num2, int operator){
-        if(num1.getType() == VarInfo.ERROR && num2.getType() == VarInfo.ERROR)
-           return new VarInfo(VarInfo.ERROR, (String)num1.getContent() + "; " + (String)num2.getContent());
-        else if(num1.getType() == VarInfo.ERROR)
-           return num1;
-        else if(num2.getType() == VarInfo.ERROR)
-           return num2;
-        else{
-           int int_result = 0;
-           switch(operator){
-              case MUL:
-                  int_result = (int)num1.getContent() * (int)num2.getContent();
-                  break;
-              case DIV:
-                  if((int)num2.getContent() == 0){
-                      System.out.println("Zero division");
-                      return new VarInfo(VarInfo.ERROR, "Zero division");
-                  }
-                  int_result = (int)num1.getContent() / (int)num2.getContent();
-                  break;
-              case PLUS:
-                  int_result = (int)num1.getContent() + (int)num2.getContent();
-                  break;
-              case MINUS:
-                  int_result = (int)num1.getContent() - (int)num2.getContent();
-                  break;
-              case MOD:
-                  int_result = (int)num1.getContent() % (int)num2.getContent();
-                  break;
-              case EXP:
-                  int_result = (int)Math.pow((int)num1.getContent(), (int)num2.getContent());
-                  break;
-           }
-           return new VarInfo(VarInfo.INT_TYPE, int_result);
-        }
-      }
+	private final int PLUS = 1;
+	private final int MINUS = 2;
+	private final int DIV = 3;
+	private final int MUL = 4;
+	private final int EXP = 5;
+	private final int MOD = 6;
+
+	private VarInfo calcVarInfo_int_result(VarInfo num1, VarInfo num2, int operator){
+		if(num1.getType() == VarInfo.ERROR && num2.getType() == VarInfo.ERROR)
+			return new VarInfo(VarInfo.ERROR, (String)num1.getContent() + "; " + (String)num2.getContent());
+		else if(num1.getType() == VarInfo.ERROR)
+			return num1;
+		else if(num2.getType() == VarInfo.ERROR)
+			return num2;
+		else{
+			int int_result = 0;
+			switch(operator){
+				case MUL:
+				int_result = (int)num1.getContent() * (int)num2.getContent();
+				break;
+				case DIV:
+					if((int)num2.getContent() == 0){
+						return new VarInfo(VarInfo.ERROR, "Zero division");
+					}
+					int_result = (int)num1.getContent() / (int)num2.getContent();
+					break;
+				case PLUS:
+					int_result = (int)num1.getContent() + (int)num2.getContent();
+				break;
+				case MINUS:
+					int_result = (int)num1.getContent() - (int)num2.getContent();
+				break;
+				case MOD:
+					int_result = (int)num1.getContent() % (int)num2.getContent();
+				break;
+				case EXP:
+					int_result = (int)Math.pow((int)num1.getContent(), (int)num2.getContent());
+				break;
+	        	}
+		return new VarInfo(VarInfo.INT_TYPE, int_result);
+		}
+	}
 
 
       private VarInfo calcVarInfo_float_result(VarInfo num1, VarInfo num2, int operator){
@@ -64,7 +66,6 @@ action code {:
                     break;
                 case DIV:
                     if(op2 == 0){
-                        System.out.println("Zero division");
                         return new VarInfo(VarInfo.ERROR, "Zero division");
                     }
                     float_result = op1 / op2;
@@ -96,7 +97,6 @@ action code {:
                else{
                   int reps = (int)num.getContent();
                   if(reps < 0){
-                     System.out.println("Negative Argument");
                      return new VarInfo(VarInfo.ERROR, "Negative Argument");
                   }
                   else{
@@ -108,21 +108,53 @@ action code {:
                   }
               }
         }
+
+        public VarInfo checkVarError(VarInfo var1, VarInfo var2){
+            VarInfo result = null;
+            if(var1.getType() == VarInfo.ERROR && var2.getType() == VarInfo.ERROR)
+              result = new VarInfo(VarInfo.ERROR, (String)var1.getContent() + "; " + (String)var2.getContent());
+            else if(var1.getType() == VarInfo.ERROR)
+               result = var1;
+            else if(var2.getType() == VarInfo.ERROR)
+               result = var2;
+            return result;
+        }
+
+
+        public boolean checkIncompatibleType(VarInfo var1, VarInfo var2){
+          if(var1.getType() == var2.getType() || (var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE))
+              return false;
+          return true;
+        }
+
+        public int calcVariInfo_compare(VarInfo var1, VarInfo var2){
+          if(var1.getType() == VarInfo.NIL_TYPE && var2.getType() == VarInfo.NIL_TYPE)
+            return 0;
+          else if((var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE)){
+            Comparable v1 = (Comparable)((Number) var1.getContent()).doubleValue();
+            Comparable v2 = (Comparable)((Number) var2.getContent()).doubleValue();
+            return v1.compareTo(v2);
+          }
+          else{
+            Comparable v1 = (Comparable) var1.getContent();
+            Comparable v2 = (Comparable) var2.getContent();
+            return v1.compareTo(v2);
+          }
+        }
 :}
 
 
 /* Terminals  (tokens returned by the scanner). */
-terminal String LITERAL;
+terminal String LITERAL, NIL, ID, ID_GLOBAL;
 terminal Integer INT;
 terminal Double FLOAT;
 terminal Boolean TRUE, FALSE;
-terminal COMMA, SEMICOLON, CRLF, REQUIRE, END, DEF, RETURN, IF, THEN, ELSE, ELSIF, UNLESS, WHILE, RETRY, BREAK, FOR, PLUS, MINUS, MUL, DIV, MOD, EXP, EQUAL, NOT_EQUAL, GREATER, LESS, LESS_EQUAL, GREATER_EQUAL, ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN, BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_SHL, BIT_SHR, AND, OR, NOT, LEFT_RBRACKET, RIGHT_RBRACKET, LEFT_SBRACKET, RIGHT_SBRACKET, NIL, ID, ID_GLOBAL, ID_FUNCTION;
+terminal COMMA, SEMICOLON, CRLF, REQUIRE, END, DEF, RETURN, IF, THEN, ELSE, ELSIF, UNLESS, WHILE, RETRY, BREAK, FOR, PLUS, MINUS, MUL, DIV, MOD, EXP, EQUAL, NOT_EQUAL, GREATER, LESS, LESS_EQUAL, GREATER_EQUAL, ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN, BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_SHL, BIT_SHR, AND, OR, NOT, LEFT_RBRACKET, RIGHT_RBRACKET, LEFT_SBRACKET, RIGHT_SBRACKET, ID_FUNCTION;
 
 /* Non terminals */
-non terminal VarInfo rvalue, int_result, float_result, string_result;
-non terminal Integer int_t;
-non terminal Double float_t;
-non terminal prog, expression_list, expression, require_block, function_definition, function_definition_body, function_definition_header, function_name, function_definition_params, function_definition_params_list, return_statement, function_call, function_call_param_list, function_call_params, if_elsif_statement, if_statement, unless_statement, while_statement, while_expression_list, for_statement, for_expression_list, assignment, array_assignment, array_definition, array_definition_elements, array_selector, lvalue, literal_t, bool_t, nil_t, id, id_global, id_function, terminator, crlf;
+non terminal VarInfo rvalue, int_result, float_result, string_result, nil_t, literal_t, bool_t, int_t, float_t, assignment;
+non terminal String lvalue, id, id_global;
+non terminal prog, expression_list, expression, require_block, function_definition, function_definition_body, function_definition_header, function_name, function_definition_params, function_definition_params_list, return_statement, function_call, function_call_param_list, function_call_params, if_elsif_statement, if_statement, unless_statement, while_statement, while_expression_list, for_statement, for_expression_list, array_assignment, array_definition, array_definition_elements, array_selector, id_function, terminator, crlf;
 
 /* Precedences based in http://stackoverflow.com/questions/21060234/ruby-operator-precedence-table */
 precedence right PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, EXP_ASSIGN;
@@ -144,210 +176,21 @@ prog ::= expression_list;
 expression_list ::= expression terminator
     		  | expression_list expression terminator;
 
-expression ::= function_definition
-    		  | require_block
-  		  	| if_statement
- 	        | unless_statement
-    			| rvalue:result                                    {: System.out.println(result); :}
-    			| return_statement
-    			| while_statement
-    			| for_statement;
+expression ::= rvalue:result                               {: System.out.println(result); :};
 
-require_block ::= REQUIRE literal_t;
 
-function_definition ::= function_definition_header function_definition_body END;
 
-function_definition_body ::= expression_list;
-
-function_definition_header ::= DEF function_name crlf
-    			| DEF function_name function_definition_params crlf;
-
-function_name ::= id_function
-    			| id;
-
-function_definition_params ::= LEFT_RBRACKET function_definition_params_list RIGHT_RBRACKET
-    			| function_definition_params_list;
-
-function_definition_params_list ::= id
-    		  | function_definition_params_list COMMA id;
-
-return_statement ::= RETURN rvalue;
-
-function_call ::= function_name LEFT_RBRACKET function_call_param_list RIGHT_RBRACKET
-			    | function_name function_call_param_list
-			    | function_name LEFT_RBRACKET RIGHT_RBRACKET;
-
-function_call_param_list ::= function_call_params;
-
-function_call_params ::= rvalue
-					| function_call_params COMMA rvalue;
-
-if_elsif_statement ::= ELSIF rvalue crlf expression_list
-					| ELSIF rvalue crlf expression_list ELSE crlf expression_list
-					| ELSIF rvalue crlf expression_list if_elsif_statement;
-
-if_statement ::= IF rvalue crlf expression_list END
-			    | IF rvalue THEN expression_list END
-			    | IF rvalue crlf expression_list ELSE crlf expression_list END
-			    | IF rvalue THEN expression_list ELSE expression_list END
-			    | IF rvalue crlf expression_list if_elsif_statement END;
-
-unless_statement ::= UNLESS rvalue crlf expression_list END;
-
-while_statement ::= WHILE rvalue crlf while_expression_list END;
-
-while_expression_list ::= expression terminator
-			    | RETRY terminator
-			    | BREAK terminator
-			    | while_expression_list expression terminator
-			    | while_expression_list RETRY terminator
-			    | while_expression_list BREAK terminator;
-
-for_statement ::= FOR LEFT_RBRACKET expression SEMICOLON expression SEMICOLON expression
- 											RIGHT_RBRACKET crlf for_expression_list END
-    			| FOR expression SEMICOLON expression SEMICOLON expression crlf for_expression_list END;
-
-for_expression_list ::= expression terminator
-			    | RETRY terminator
-			    | BREAK terminator
-			    | for_expression_list expression terminator
-			    | for_expression_list RETRY terminator
-			    | for_expression_list BREAK terminator;
-
-assignment ::= lvalue ASSIGN rvalue
-			    | lvalue PLUS_ASSIGN rvalue
+assignment ::= lvalue:var ASSIGN rvalue:value
+          {: varTable.put(var, value);
+             RESULT = value;
+          :}
+          | lvalue:var PLUS_ASSIGN rvalue
 					| lvalue MINUS_ASSIGN rvalue
 					| lvalue MUL_ASSIGN rvalue
 					| lvalue DIV_ASSIGN rvalue
 					| lvalue MOD_ASSIGN rvalue
 					| lvalue EXP_ASSIGN rvalue;
 
-array_assignment ::= lvalue array_definition ASSIGN rvalue
-    			| lvalue ASSIGN array_definition;
-
-array_definition ::= LEFT_SBRACKET array_definition_elements RIGHT_SBRACKET
-    			| LEFT_SBRACKET RIGHT_SBRACKET;
-
-array_definition_elements ::= rvalue
-    			| array_definition_elements COMMA rvalue;
-
-array_selector ::= id LEFT_SBRACKET rvalue RIGHT_SBRACKET
-			    | id_global LEFT_SBRACKET rvalue RIGHT_SBRACKET
-			    | function_call LEFT_SBRACKET rvalue RIGHT_SBRACKET;
-
-int_result ::= int_result:num1 MUL int_result:num2
-          {:
-             RESULT = calcVarInfo_int_result(num1, num2, MUL);
-          :}
-					| int_result:num1 DIV int_result:num2
-          {:
-             RESULT = calcVarInfo_int_result(num1, num2, DIV);
-           :}
-					| int_result:num1 MOD int_result:num2
-          {:
-             RESULT = calcVarInfo_int_result(num1, num2, MOD);
-          :}
-			    | int_result:num1 PLUS int_result:num2
-          {:
-             RESULT = calcVarInfo_int_result(num1, num2, PLUS);
-          :}
-					| int_result:num1 MINUS int_result:num2
-          {:
-             RESULT = calcVarInfo_int_result(num1, num2, MINUS);
-          :}
-          | int_result:num1 EXP int_result:num2
-          {:
-             RESULT = calcVarInfo_int_result(num1, num2, EXP);
-          :}
-          | LEFT_RBRACKET int_result:num RIGHT_RBRACKET
-          {:
-             RESULT = num;
-          :}
-			    | int_t:num
-          {:
-             RESULT = new VarInfo(VarInfo.INT_TYPE, num);
-          :};
-
-float_result ::= float_result:num1 MUL float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MUL);
-          :}
-					| float_result:num1 DIV float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, DIV);
-          :}
-					| float_result:num1 MOD float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MOD);
-          :}
-			    | int_result:num1 MUL float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MUL);
-          :}
-					| int_result:num1 DIV float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, DIV);
-          :}
-					| int_result:num1 MOD float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MOD);
-          :}
-			    | float_result:num1 MUL int_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MUL);
-          :}
-					| float_result:num1 DIV int_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, DIV);
-          :}
-					| float_result:num1 MOD int_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MOD);
-          :}
-			    | float_result:num1 PLUS float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, PLUS);
-          :}
-					| float_result:num1 MINUS float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MINUS);
-          :}
-			    | int_result:num1 PLUS float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, PLUS);
-          :}
-					| int_result:num1 MINUS float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MINUS);
-          :}
-			    | float_result:num1 PLUS int_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, PLUS);
-          :}
-					| float_result:num1 MINUS int_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, MINUS);
-          :}
-          | float_result:num1 EXP float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, EXP);
-          :}
-          | int_result:num1 EXP float_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, EXP);
-          :}
-          | float_result:num1 EXP int_result:num2
-          {:
-             RESULT = calcVarInfo_float_result(num1, num2, EXP);
-          :}
-          | LEFT_RBRACKET float_result:num RIGHT_RBRACKET
-          {:
-             RESULT = num;
-          :}
-			    | float_t:num
-          {:
-             RESULT = new VarInfo(VarInfo.FLOAT_TYPE, num);
-          :};
 
 string_result ::= string_result:str MUL int_result:num
           {:
@@ -359,55 +202,252 @@ string_result ::= string_result:str MUL int_result:num
           :}
     			| literal_t:str
           {:
-            RESULT = new VarInfo(VarInfo.STRING_TYPE, str);
+            RESULT = str;
           :};
 
-lvalue ::= id
-    			| id_global;
+lvalue ::= id:val
+          {: RESULT = val; :}
+    			| id_global:val
+          {: RESULT = val; :};
 
-rvalue ::= lvalue
-					| int_result:num
-          {: RESULT = num; :}
-				  | float_result:num
-          {: RESULT = num; :}
-					| string_result:str
-          {: RESULT = str; :}
-					| assignment
-					| bool_t
-					| nil_t
-					| NOT rvalue
+rvalue ::= lvalue:var
+          {: 
+            if(varTable.containsKey(var))
+               RESULT = varTable.get(var);
+             else
+                RESULT = new VarInfo(VarInfo.ERROR, "Error: Variable sin inicializar");
+          :}
+          | literal_t:str
+          {:
+            RESULT = str;
+          :}
+					| assignment:var
+          {: RESULT = var; :}
+					| bool_t:var
+          {: RESULT = var; :}
+					| nil_t:var
+          {: RESULT = var; :}
+          | float_t:num
+          {:
+             RESULT = num;
+          :}
+          | int_t:num
+          {:
+             RESULT = num;
+          :}
+					| NOT rvalue:var
+           {:
+             if(var.getType() == VarInfo.ERROR)
+               RESULT = var;
+             else{
+               if(var.getType() == VarInfo.NIL_TYPE || var.getType() == VarInfo.BOOL_TYPE && !((Boolean)var.getContent()).booleanValue())
+                 RESULT = new VarInfo(VarInfo.BOOL_TYPE, true);
+               else
+                 RESULT = new VarInfo(VarInfo.BOOL_TYPE, false);
+             }
+           :}
 					| BIT_NOT rvalue
 					| rvalue BIT_SHL rvalue
 					| rvalue BIT_SHR rvalue
 					| rvalue BIT_AND rvalue
 					| rvalue BIT_OR rvalue
 					| rvalue BIT_XOR rvalue
-					| rvalue LESS rvalue
-					| rvalue GREATER rvalue
-					| rvalue LESS_EQUAL rvalue
-					| rvalue GREATER_EQUAL rvalue
-					| rvalue EQUAL rvalue
-					| rvalue NOT_EQUAL rvalue
-					| rvalue OR rvalue
-					| rvalue AND rvalue
+          | rvalue:var1 PLUS rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else if(var1.getType() == VarInfo.INT_TYPE && var2.getType() == VarInfo.INT_TYPE)
+              RESULT = calcVarInfo_int_result(var1, var2, PLUS);
+            else if((var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE))
+              RESULT = calcVarInfo_float_result(var1, var2, PLUS);
+            else if(var1.getType() == VarInfo.STRING_TYPE && var2.getType() == VarInfo.STRING_TYPE)
+              RESULT = new VarInfo(VarInfo.STRING_TYPE, (String)var1.getContent() + (String)var2.getContent());
+            else
+              RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+          :}
+          | rvalue:var1 MINUS rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else if(var1.getType() == VarInfo.INT_TYPE && var2.getType() == VarInfo.INT_TYPE)
+              RESULT = calcVarInfo_int_result(var1, var2, MINUS);
+            else if((var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE))
+              RESULT = calcVarInfo_float_result(var1, var2, MINUS);
+            else
+              RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+          :}
+          | rvalue:var1 MUL rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else if(var1.getType() == VarInfo.INT_TYPE && var2.getType() == VarInfo.INT_TYPE)
+              RESULT = calcVarInfo_int_result(var1, var2, MUL);
+            else if((var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE))
+              RESULT = calcVarInfo_float_result(var1, var2, MUL);
+            else if(var1.getType() == VarInfo.STRING_TYPE && var2.getType() == VarInfo.INT_TYPE)
+              RESULT = calcVarInfo_string_result(var1, var2);
+            else if(var1.getType() == VarInfo.INT_TYPE && var2.getType() == VarInfo.STRING_TYPE)
+              RESULT = calcVarInfo_string_result(var2, var1);
+            else
+              RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+          :}
+          | rvalue:var1 DIV rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else if(var1.getType() == VarInfo.INT_TYPE && var2.getType() == VarInfo.INT_TYPE)
+              RESULT = calcVarInfo_int_result(var1, var2, DIV);
+            else if((var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE))
+              RESULT = calcVarInfo_float_result(var1, var2, DIV);
+            else
+              RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+          :}
+          | rvalue:var1 MOD rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else if(var1.getType() == VarInfo.INT_TYPE && var2.getType() == VarInfo.INT_TYPE)
+              RESULT = calcVarInfo_int_result(var1, var2, MOD);
+            else if((var1.getType() == VarInfo.INT_TYPE || var1.getType() == VarInfo.FLOAT_TYPE) && (var2.getType() == VarInfo.INT_TYPE || var2.getType() == VarInfo.FLOAT_TYPE))
+              RESULT = calcVarInfo_float_result(var1, var2, MOD);
+            else
+              RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+          :}
+					| rvalue:var1 LESS rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else
+              if(checkIncompatibleType(var1, var2))
+                RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles para comparar.");
+              else{
+                boolean result = calcVariInfo_compare(var1, var2) < 0;
+                RESULT =  new VarInfo(VarInfo.BOOL_TYPE, result);
+            }
+          :}
+					| rvalue:var1 GREATER rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else
+              if(checkIncompatibleType(var1, var2))
+                RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles para comparar.");
+              else{
+                boolean result = calcVariInfo_compare(var1, var2) > 0;
+                RESULT =  new VarInfo(VarInfo.BOOL_TYPE, result);
+            }
+          :}
+					| rvalue:var1 LESS_EQUAL rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else
+              if(checkIncompatibleType(var1, var2))
+                RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles para comparar.");
+              else{
+                boolean result = calcVariInfo_compare(var1, var2) <= 0;
+                RESULT =  new VarInfo(VarInfo.BOOL_TYPE, result);
+            }
+          :}
+					| rvalue:var1 GREATER_EQUAL rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else
+              if(checkIncompatibleType(var1, var2))
+                RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles para comparar.");
+              else{
+                boolean result = calcVariInfo_compare(var1, var2) >= 0;
+                RESULT =  new VarInfo(VarInfo.BOOL_TYPE, result);
+            }
+          :}
+					| rvalue:var1 EQUAL rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else
+              if(checkIncompatibleType(var1, var2))
+                RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles para comparar.");
+              else{
+                boolean result = calcVariInfo_compare(var1, var2) == 0;
+                RESULT =  new VarInfo(VarInfo.BOOL_TYPE, result);
+            }
+          :}
+					| rvalue:var1 NOT_EQUAL rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else
+              if(checkIncompatibleType(var1, var2))
+                RESULT = new VarInfo(VarInfo.ERROR, "Tipos incompatibles para comparar.");
+              else{
+                boolean result = calcVariInfo_compare(var1, var2) != 0;
+                RESULT =  new VarInfo(VarInfo.BOOL_TYPE, result);
+            }
+          :}
+					| rvalue:var1 OR rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else{
+              if(var1.getType() == VarInfo.NIL_TYPE || var1.getType() == VarInfo.BOOL_TYPE && !((Boolean)var1.getContent()).booleanValue())
+                RESULT = var2;
+              else
+                RESULT = var1;
+            }
+          :}
+					| rvalue:var1 AND rvalue:var2
+          {:
+            VarInfo varError = checkVarError(var1, var2);
+            if(varError != null)
+              RESULT = varError;
+            else{
+              if(var1.getType() == VarInfo.NIL_TYPE || var1.getType() == VarInfo.BOOL_TYPE && !((Boolean)var1.getContent()).booleanValue())
+                RESULT = var1;
+              else
+                RESULT = var2;
+            }
+          :}
+          | LEFT_RBRACKET rvalue:val RIGHT_RBRACKET
+          {:
+            RESULT = val;
+          :}
 					;
 
-literal_t ::= LITERAL:str                                 {: RESULT = str; :};
+literal_t ::= LITERAL:str
+{: RESULT = new VarInfo(VarInfo.STRING_TYPE, str); :};
 
-float_t ::= FLOAT:num                                     {: RESULT = num; :};
+float_t ::= FLOAT:num
+{: RESULT = new VarInfo(VarInfo.FLOAT_TYPE, num); :};
 
-int_t ::= INT:num                                         {: RESULT = num; :};
+int_t ::= INT:num
+{: RESULT = new VarInfo(VarInfo.INT_TYPE, num); :};
 
 bool_t ::= TRUE
-		| FALSE;
+{: RESULT = new VarInfo(VarInfo.BOOL_TYPE, true); :}
+| FALSE
+{: RESULT = new VarInfo(VarInfo.BOOL_TYPE, false); :};
 
-nil_t ::= NIL;
+nil_t ::= NIL:nil
+{: RESULT = new VarInfo(VarInfo.NIL_TYPE, nil); :};
 
-id ::= ID;
+id ::= ID:var
+{: RESULT = var; :};
 
-id_global ::= ID_GLOBAL;
-
-id_function ::= ID_FUNCTION;
+id_global ::= ID_GLOBAL:var
+{: RESULT = var; :};
 
 terminator ::= terminator SEMICOLON
 				| terminator crlf

@@ -6,69 +6,72 @@
 /** CUP generated class containing symbol constants. */
 public class sym {
   /* terminals */
-  public static final int BIT_XOR = 44;
-  public static final int RIGHT_RBRACKET = 52;
-  public static final int PLUS_ASSIGN = 36;
-  public static final int ELSIF = 17;
-  public static final int BIT_NOT = 45;
-  public static final int BIT_AND = 42;
-  public static final int NOT_EQUAL = 30;
-  public static final int RIGHT_SBRACKET = 54;
-  public static final int GREATER = 31;
-  public static final int INT = 3;
-  public static final int LESS = 32;
-  public static final int FOR = 22;
-  public static final int MINUS = 24;
-  public static final int ID_GLOBAL = 57;
-  public static final int NOT = 50;
-  public static final int AND = 48;
-  public static final int SEMICOLON = 8;
-  public static final int NIL = 55;
-  public static final int OR = 49;
-  public static final int COMMA = 7;
-  public static final int DIV = 26;
-  public static final int LESS_EQUAL = 33;
-  public static final int PLUS = 23;
-  public static final int ASSIGN = 35;
-  public static final int IF = 14;
-  public static final int EXP = 28;
-  public static final int ID = 56;
-  public static final int LEFT_RBRACKET = 51;
-  public static final int RETRY = 20;
-  public static final int CRLF = 9;
+  public static final int BIT_XOR = 47;
+  public static final int RIGHT_RBRACKET = 55;
+  public static final int PLUS_ASSIGN = 39;
+  public static final int ELSIF = 20;
+  public static final int BIT_NOT = 48;
+  public static final int BIT_AND = 45;
+  public static final int NOT_EQUAL = 33;
+  public static final int RIGHT_SBRACKET = 57;
+  public static final int GREATER = 34;
+  public static final int INT = 6;
+  public static final int LESS = 35;
+  public static final int FOR = 25;
+  public static final int MINUS = 27;
+  public static final int ID_GLOBAL = 5;
+  public static final int NOT = 53;
+  public static final int AND = 51;
+  public static final int SEMICOLON = 11;
+  public static final int NIL = 3;
+  public static final int OR = 52;
+  public static final int COMMA = 10;
+  public static final int DIV = 29;
+  public static final int LESS_EQUAL = 36;
+  public static final int PLUS = 26;
+  public static final int ASSIGN = 38;
+  public static final int IF = 17;
+  public static final int EXP = 31;
+  public static final int LEFT_RBRACKET = 54;
+  public static final int ID = 4;
+  public static final int RETRY = 23;
+  public static final int CRLF = 12;
   public static final int EOF = 0;
   public static final int ID_FUNCTION = 58;
-  public static final int RETURN = 13;
-  public static final int EQUAL = 29;
-  public static final int TRUE = 5;
-  public static final int GREATER_EQUAL = 34;
+  public static final int RETURN = 16;
+  public static final int EQUAL = 32;
+  public static final int GREATER_EQUAL = 37;
+  public static final int TRUE = 8;
   public static final int error = 1;
-  public static final int LEFT_SBRACKET = 53;
-  public static final int MUL = 25;
-  public static final int REQUIRE = 10;
-  public static final int MOD = 27;
-  public static final int BREAK = 21;
-  public static final int MOD_ASSIGN = 40;
-  public static final int DIV_ASSIGN = 39;
+  public static final int LEFT_SBRACKET = 56;
+  public static final int MUL = 28;
+  public static final int REQUIRE = 13;
+  public static final int MOD = 30;
+  public static final int BREAK = 24;
+  public static final int MOD_ASSIGN = 43;
+  public static final int DIV_ASSIGN = 42;
   public static final int LITERAL = 2;
-  public static final int ELSE = 16;
-  public static final int EXP_ASSIGN = 41;
-  public static final int WHILE = 19;
-  public static final int UNLESS = 18;
-  public static final int FLOAT = 4;
-  public static final int THEN = 15;
-  public static final int END = 11;
-  public static final int MUL_ASSIGN = 38;
-  public static final int DEF = 12;
-  public static final int BIT_SHR = 47;
-  public static final int BIT_OR = 43;
-  public static final int FALSE = 6;
-  public static final int BIT_SHL = 46;
-  public static final int MINUS_ASSIGN = 37;
+  public static final int ELSE = 19;
+  public static final int EXP_ASSIGN = 44;
+  public static final int WHILE = 22;
+  public static final int UNLESS = 21;
+  public static final int FLOAT = 7;
+  public static final int THEN = 18;
+  public static final int END = 14;
+  public static final int MUL_ASSIGN = 41;
+  public static final int DEF = 15;
+  public static final int BIT_SHR = 50;
+  public static final int BIT_OR = 46;
+  public static final int FALSE = 9;
+  public static final int BIT_SHL = 49;
+  public static final int MINUS_ASSIGN = 40;
   public static final String[] terminalNames = new String[] {
   "EOF",
   "error",
   "LITERAL",
+  "NIL",
+  "ID",
+  "ID_GLOBAL",
   "INT",
   "FLOAT",
   "TRUE",
@@ -121,9 +124,6 @@ public class sym {
   "RIGHT_RBRACKET",
   "LEFT_SBRACKET",
   "RIGHT_SBRACKET",
-  "NIL",
-  "ID",
-  "ID_GLOBAL",
   "ID_FUNCTION"
   };
 }

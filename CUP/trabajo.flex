@@ -39,8 +39,10 @@ ESCAPED_QUOTE = "\\\\\""
 											 " - Identificador ilegal - Línea: "+yyline);}
 
 {ID}							  {String x = yytext();
-					 				   if(tabla.reservadas.containsKey(x))
-										  	System.out.println("token: " + tabla.reservadas.get(x));
+					 				   if(tabla.reservadas.containsKey(x)){
+										 		
+										  	return new Symbol(tabla.reservadas.get(x), yytext());
+										}
 					 					 else
 					 					    System.out.println("token: ID(" + x + ")");
 					 					 return new Symbol(sym.ID, yytext());}
