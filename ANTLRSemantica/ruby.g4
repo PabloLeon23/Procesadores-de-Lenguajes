@@ -179,16 +179,67 @@ rvalue_list : rvalue COMMA | rvalue;
 
 /*assignment*/
 assignment returns [VarInfo info]: lvalue ASSIGN rvalue {$info=$rvalue.info;varTable.put($lvalue.text, $rvalue.info); System.out.println("Asignación a "+$lvalue.text+" de ("+$rvalue.info+")");}
-| lvalue signo=( PLUS_ASSIGN | MINUS_ASSIGN | MUL_ASSIGN | DIV_ASSIGN | MOD_ASSIGN | EXP_ASSIGN) rvalue /*{
+| lvalue {int operation=0;} ( PLUS_ASSIGN | MINUS_ASSIGN{operation=1;} | MUL_ASSIGN{operation=2;} | DIV_ASSIGN {operation=3;}| MOD_ASSIGN{operation=4;} | EXP_ASSIGN{operation=5;}) rvalue{
 	if(varTable.containsKey($lvalue.text)){
-		VarInfo aInf=null,idInf=varTable.get($lvalue.text);
+		VarInfo info2=$rvalue.info,info1=varTable.get($lvalue.text);
 		
-		if(getVocabulary().getSymbolicName($signo.type).equals("PLUS_ASSIGN"))
-			aInf=new VarInfo(idInf.getType(),);
+		if(info1.getType()==VarInfo.ERROR || info2.getType()==VarInfo.ERROR){
+			$info=handleError(info1,info2);
+		}
+		else if((info1.getType()==VarInfo.INT_TYPE || info1.getType()==VarInfo.FLOAT_TYPE) && (info2.getType()==VarInfo.INT_TYPE || info2.getType()==VarInfo.FLOAT_TYPE)){
+			int resultType=VarInfo.FLOAT_TYPE;
+			if(info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.INT_TYPE)
+				resultType=VarInfo.INT_TYPE;
+			switch(operation){
+				case 0:
+					if(resultType==VarInfo.INT_TYPE)
+						$info=new VarInfo(VarInfo.INT_TYPE,((int) info1.getContent())+((int) info2.getContent()));
+					else
+						$info=new VarInfo(VarInfo.FLOAT_TYPE,((Number) info1.getContent()).doubleValue()+((Number) info2.getContent()).doubleValue());
+				break;
+				case 1:
+					if(resultType==VarInfo.INT_TYPE)
+						$info=new VarInfo(VarInfo.INT_TYPE,((int) info1.getContent())-((int) info2.getContent()));
+					else
+						$info=new VarInfo(VarInfo.FLOAT_TYPE,((Number) info1.getContent()).doubleValue()-((Number) info2.getContent()).doubleValue());
+				break;
+				case 2:
+					if(resultType==VarInfo.INT_TYPE)
+						$info=new VarInfo(VarInfo.INT_TYPE,((int) info1.getContent())*((int) info2.getContent()));
+					else
+						$info=new VarInfo(VarInfo.FLOAT_TYPE,((Number) info1.getContent()).doubleValue()*((Number) info2.getContent()).doubleValue());
+				break;
+				case 3:
+					$info=divide((Number) info1.getContent(),(Number) info2.getContent(),resultType);
+				break;
+				case 4:
+					$info=module((Number) info1.getContent(),(Number) info2.getContent(),resultType);
+				break;
+				case 5:
+					if(resultType==VarInfo.INT_TYPE)
+						$info=new VarInfo(VarInfo.INT_TYPE,(int) (Math.pow((int) info1.getContent(),(int) info2.getContent())));
+					else
+						$info=new VarInfo(VarInfo.FLOAT_TYPE,Math.pow(((Number) info1.getContent()).doubleValue(),((Number) info2.getContent()).doubleValue()));
+				break;
+			}
+		}
+		else if((info1.getType()==VarInfo.STRING_TYPE && info2.getType()==VarInfo.STRING_TYPE) && operation==0){
+			$info=new VarInfo(VarInfo.STRING_TYPE,((String) info1.getContent())+((String) info2.getContent()));
+		}
+		else if(((info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.STRING_TYPE) || (info2.getType()==VarInfo.INT_TYPE && info1.getType()==VarInfo.STRING_TYPE)) && operation==2){
+			if(info1.getType()==VarInfo.INT_TYPE)
+				$info=multString((String)info2.getContent(),(int)info1.getContent());
+			else
+				$info=multString((String)info1.getContent(),(int)info2.getContent());
+		}
+		else{
+			$info=new VarInfo(VarInfo.ERROR,"Tipos incompatibles");
+		}
 	}
 	else
 		$info=new VarInfo(VarInfo.ERROR,"Variable utilizada sin inicializar: "+$lvalue.text);
-}*/
+	varTable.put($lvalue.text,$info);
+}
 ;
 
 /*array*/
@@ -207,13 +258,7 @@ array_selector : id LEFT_SBRACKET rvalue RIGHT_SBRACKET
 ;
 
 /*int_result*/
-int_result returns [VarInfo info] : i1=int_result EXP i2=int_result{
-	if($i1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
-		$info=handleError($i1.info,$i2.info);
-	else 
-		$info=new VarInfo(VarInfo.INT_TYPE, (int) Math.pow((int)$i1.info.getContent(),(int)$i2.info.getContent()));
-}
-|i1=int_result signo=( MUL | DIV | MOD ) i2=int_result {
+int_result returns [VarInfo info] : i1=int_result signo=( MUL | DIV | MOD ) i2=int_result {
 	if($i1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
 		$info=handleError($i1.info,$i2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("MUL"))
@@ -235,25 +280,7 @@ int_result returns [VarInfo info] : i1=int_result EXP i2=int_result{
 | int_t{$info=new VarInfo(VarInfo.INT_TYPE,$int_t.value);};
 
 /*float_result*/
-float_result returns [VarInfo info]: f1=float_result EXP f2=float_result{
-	if($f1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
-		$info=handleError($f1.info,$f2.info);
-	else 
-		$info=new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)$f1.info.getContent(),(double)$f2.info.getContent()));
-}
-|i1=int_result EXP f2=float_result{
-	if($i1.info.getType()==VarInfo.ERROR || $f2.info.getType()==VarInfo.ERROR)
-		$info=handleError($i1.info,$f2.info);
-	else 
-		$info=new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((int)$i1.info.getContent(),(double)$f2.info.getContent()));
-}
-|f1=float_result EXP i2=int_result{
-	if($f1.info.getType()==VarInfo.ERROR || $i2.info.getType()==VarInfo.ERROR)
-		$info=handleError($f1.info,$i2.info);
-	else 
-		$info=new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)$f1.info.getContent(),(int)$i2.info.getContent()));
-}
-|f1=float_result signo=( MUL | DIV | MOD ) f2=float_result {
+float_result returns [VarInfo info]: f1=float_result signo=( MUL | DIV | MOD ) f2=float_result {
 	if($f1.info.getType()==VarInfo.ERROR && $f2.info.getType()==VarInfo.ERROR)
 		$info=handleError($f1.info,$f2.info);
 	else if(getVocabulary().getSymbolicName($signo.type).equals("MUL"))
@@ -348,6 +375,16 @@ rvalue returns [VarInfo info]: lvalue {if(varTable.containsKey($lvalue.text)) $i
 | assignment {$info=$assignment.info;}
 | bool_t {$info=new VarInfo(VarInfo.BOOL_TYPE,$bool_t.value);}
 | nil_t {$info=new VarInfo(VarInfo.NIL_TYPE,null);}
+| r1=rvalue EXP r2=rvalue{
+	if($r1.info.getType()==VarInfo.ERROR || $r2.info.getType()==VarInfo.ERROR)
+		$info=handleError($r1.info,$r2.info);
+	else if($r1.info.getType()==VarInfo.INT_TYPE && $r2.info.getType()==VarInfo.INT_TYPE)
+		$info=new VarInfo(VarInfo.INT_TYPE, (int) Math.pow((int)$r1.info.getContent(),(int)$r2.info.getContent()));
+	else if(($r1.info.getType()==VarInfo.INT_TYPE || $r1.info.getType()==VarInfo.FLOAT_TYPE) && ($r2.info.getType()==VarInfo.INT_TYPE || $r2.info.getType()==VarInfo.FLOAT_TYPE))
+		$info=new VarInfo(VarInfo.FLOAT_TYPE,Math.pow(((Number)$r1.info.getContent()).doubleValue(),((Number)$r2.info.getContent()).doubleValue()));
+	else
+		$info=new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+}
 | NOT rvalue {
 	if($rvalue.info.getType()==VarInfo.ERROR)
 		$info=$rvalue.info;
