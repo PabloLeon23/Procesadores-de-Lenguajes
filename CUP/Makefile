@@ -1,7 +1,12 @@
 all:
-	jflex trabajo2.flex
-	java -jar java-cup-11b.jar cup_done.cup
-	javac -cp java-cup-11b.jar:. VarInfo.java Tabla.java analex.java parser.java sym.java Main.java
+	jflex src/analizador_lexico.flex
+	java -jar lib/java-cup-11b.jar src/analizador_sintactico.cup
+	mv *.java src
+	javac -sourcepath src -cp lib/java-cup-11b.jar -d bin src/*.java
 
 exec:
-	java -cp java-cup-11b-runtime.jar:. Main prueba_cup.txt
+	java -cp lib/java-cup-11b-runtime.jar:bin Main tests/prueba_cup.txt
+
+clean:
+	rm bin/*.class
+	rm src/analex.java src/parser.java src/sym.java
