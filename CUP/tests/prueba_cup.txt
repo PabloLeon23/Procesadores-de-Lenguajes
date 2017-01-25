@@ -40,4 +40,3 @@ factor_error
 valor_entrada
 ((z * x) - (2 - 1)) + a
 ((z * x) - (2 - 1)) / (x+1-z)
-(2*2 + (-))

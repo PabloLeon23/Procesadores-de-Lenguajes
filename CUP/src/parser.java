@@ -306,13 +306,13 @@ public class parser extends java_cup.runtime.lr_parser {
     "\000\036\002\uffff\004\uffff\005\uffff\006\uffff\007\uffff\010" +
     "\uffff\011\uffff\012\uffff\013\uffff\014\127\015\125\044\uffff" +
     "\051\uffff\052\uffff\001\002\000\004\002\000\001\002\000" +
-    "\056\014\uffec\015\uffec\016\047\017\062\020\065\021\057" +
-    "\022\044\023\056\024\052\025\054\026\055\027\066\030" +
-    "\051\031\053\041\045\042\061\043\064\045\063\046\060" +
-    "\047\046\050\050\053\uffec\001\002\000\056\014\uffeb\015" +
-    "\uffeb\016\047\017\062\020\065\021\057\022\044\023\056" +
-    "\024\052\025\054\026\055\027\066\030\051\031\053\041" +
-    "\045\042\061\043\064\045\063\046\060\047\046\050\050" +
+    "\056\014\uffec\015\uffec\016\uffec\017\uffec\020\uffec\021\uffec" +
+    "\022\uffec\023\uffec\024\uffec\025\uffec\026\uffec\027\uffec\030" +
+    "\uffec\031\uffec\041\uffec\042\uffec\043\uffec\045\uffec\046\uffec" +
+    "\047\uffec\050\uffec\053\uffec\001\002\000\056\014\uffeb\015" +
+    "\uffeb\016\uffeb\017\uffeb\020\uffeb\021\uffeb\022\uffeb\023\uffeb" +
+    "\024\uffeb\025\uffeb\026\uffeb\027\uffeb\030\uffeb\031\uffeb\041" +
+    "\uffeb\042\uffeb\043\uffeb\045\uffeb\046\uffeb\047\uffeb\050\uffeb" +
     "\053\uffeb\001\002" });
 
   /** Access to parse-action table. */
@@ -548,7 +548,7 @@ private VarInfo calcVarInfo_float_result(VarInfo num1, VarInfo num2, int operato
 public VarInfo calcVarInfo_string_result(VarInfo str, VarInfo num){
 	int reps = (int)num.getContent();
 	if(reps < 0){
-		return new VarInfo(VarInfo.ERROR, "Negative Argument");
+		return new VarInfo(VarInfo.ERROR, "Argumento negativo");
 	}
 	else{
 		String s = (String)str.getContent();
@@ -669,7 +669,10 @@ public int calcVariInfo_compare(VarInfo var1, VarInfo var2){
 		int resultright = ((java_cup.runtime.Symbol)CUP$parser$stack.peek()).right;
 		VarInfo result = (VarInfo)((java_cup.runtime.Symbol) CUP$parser$stack.peek()).value;
 		
-System.out.println(result);
+if(result.getType() == VarInfo.ERROR)
+	report_error((String)result.getContent(), cur_token);
+else
+	System.out.println(result);
 
               CUP$parser$result = parser.getSymbolFactory().newSymbol("expression",12, ((java_cup.runtime.Symbol)CUP$parser$stack.peek()), ((java_cup.runtime.Symbol)CUP$parser$stack.peek()), RESULT);
             }

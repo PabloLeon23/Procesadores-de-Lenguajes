@@ -84,7 +84,7 @@ private VarInfo calcVarInfo_float_result(VarInfo num1, VarInfo num2, int operato
 public VarInfo calcVarInfo_string_result(VarInfo str, VarInfo num){
 	int reps = (int)num.getContent();
 	if(reps < 0){
-		return new VarInfo(VarInfo.ERROR, "Negative Argument");
+		return new VarInfo(VarInfo.ERROR, "Argumento negativo");
 	}
 	else{
 		String s = (String)str.getContent();
@@ -195,6 +195,7 @@ precedence left BIT_SHR, BIT_SHL;
 precedence left PLUS, MINUS;
 precedence left MUL, DIV, MOD;
 precedence right EXP;
+precedence right NOT, BIT_NOT;
 
 
 
@@ -212,7 +213,10 @@ expression_list ::= expression terminator
 /* expression */
 expression ::= rvalue:result
 {:
-System.out.println(result);
+if(result.getType() == VarInfo.ERROR)
+	report_error((String)result.getContent(), cur_token);
+else
+	System.out.println(result);
 :};
 
 
