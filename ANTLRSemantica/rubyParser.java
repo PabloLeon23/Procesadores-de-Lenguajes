@@ -1976,7 +1976,6 @@ public class rubyParser extends Parser {
 		public VarInfo info;
 		public LvalueContext lvalue;
 		public RvalueContext rvalue;
-		public Token signo;
 		public LvalueContext lvalue() {
 			return getRuleContext(LvalueContext.class,0);
 		}
@@ -2007,11 +2006,10 @@ public class rubyParser extends Parser {
 	public final AssignmentContext assignment() throws RecognitionException {
 		AssignmentContext _localctx = new AssignmentContext(_ctx, getState());
 		enterRule(_localctx, 46, RULE_assignment);
-		int _la;
 		try {
-			setState(358);
+			setState(372);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,19,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,20,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
 				{
@@ -2028,20 +2026,118 @@ public class rubyParser extends Parser {
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(354);
-				lvalue();
-				setState(355);
-				((AssignmentContext)_localctx).signo = _input.LT(1);
-				_la = _input.LA(1);
-				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << PLUS_ASSIGN) | (1L << MINUS_ASSIGN) | (1L << MUL_ASSIGN) | (1L << DIV_ASSIGN) | (1L << MOD_ASSIGN) | (1L << EXP_ASSIGN))) != 0)) ) {
-					((AssignmentContext)_localctx).signo = (Token)_errHandler.recoverInline(this);
+				((AssignmentContext)_localctx).lvalue = lvalue();
+				int operation=0;
+				setState(367);
+				_errHandler.sync(this);
+				switch (_input.LA(1)) {
+				case PLUS_ASSIGN:
+					{
+					setState(356);
+					match(PLUS_ASSIGN);
+					}
+					break;
+				case MINUS_ASSIGN:
+					{
+					setState(357);
+					match(MINUS_ASSIGN);
+					operation=1;
+					}
+					break;
+				case MUL_ASSIGN:
+					{
+					setState(359);
+					match(MUL_ASSIGN);
+					operation=2;
+					}
+					break;
+				case DIV_ASSIGN:
+					{
+					setState(361);
+					match(DIV_ASSIGN);
+					operation=3;
+					}
+					break;
+				case MOD_ASSIGN:
+					{
+					setState(363);
+					match(MOD_ASSIGN);
+					operation=4;
+					}
+					break;
+				case EXP_ASSIGN:
+					{
+					setState(365);
+					match(EXP_ASSIGN);
+					operation=5;
+					}
+					break;
+				default:
+					throw new NoViableAltException(this);
 				}
-				else {
-					if ( _input.LA(1)==Token.EOF ) matchedEOF = true;
-					_errHandler.reportMatch(this);
-					consume();
-				}
-				setState(356);
-				rvalue(0);
+				setState(369);
+				((AssignmentContext)_localctx).rvalue = rvalue(0);
+
+					if(varTable.containsKey((((AssignmentContext)_localctx).lvalue!=null?_input.getText(((AssignmentContext)_localctx).lvalue.start,((AssignmentContext)_localctx).lvalue.stop):null))){
+						VarInfo info2=((AssignmentContext)_localctx).rvalue.info,info1=varTable.get((((AssignmentContext)_localctx).lvalue!=null?_input.getText(((AssignmentContext)_localctx).lvalue.start,((AssignmentContext)_localctx).lvalue.stop):null));
+						
+						if(info1.getType()==VarInfo.ERROR || info2.getType()==VarInfo.ERROR){
+							((AssignmentContext)_localctx).info = handleError(info1,info2);
+						}
+						else if((info1.getType()==VarInfo.INT_TYPE || info1.getType()==VarInfo.FLOAT_TYPE) && (info2.getType()==VarInfo.INT_TYPE || info2.getType()==VarInfo.FLOAT_TYPE)){
+							int resultType=VarInfo.FLOAT_TYPE;
+							if(info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.INT_TYPE)
+								resultType=VarInfo.INT_TYPE;
+							switch(operation){
+								case 0:
+									if(resultType==VarInfo.INT_TYPE)
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,((int) info1.getContent())+((int) info2.getContent()));
+									else
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,((Number) info1.getContent()).doubleValue()+((Number) info2.getContent()).doubleValue());
+								break;
+								case 1:
+									if(resultType==VarInfo.INT_TYPE)
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,((int) info1.getContent())-((int) info2.getContent()));
+									else
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,((Number) info1.getContent()).doubleValue()-((Number) info2.getContent()).doubleValue());
+								break;
+								case 2:
+									if(resultType==VarInfo.INT_TYPE)
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,((int) info1.getContent())*((int) info2.getContent()));
+									else
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,((Number) info1.getContent()).doubleValue()*((Number) info2.getContent()).doubleValue());
+								break;
+								case 3:
+									((AssignmentContext)_localctx).info = divide((Number) info1.getContent(),(Number) info2.getContent(),resultType);
+								break;
+								case 4:
+									((AssignmentContext)_localctx).info = module((Number) info1.getContent(),(Number) info2.getContent(),resultType);
+								break;
+								case 5:
+									if(resultType==VarInfo.INT_TYPE)
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,(int) (Math.pow((int) info1.getContent(),(int) info2.getContent())));
+									else
+										((AssignmentContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,Math.pow(((Number) info1.getContent()).doubleValue(),((Number) info2.getContent()).doubleValue()));
+								break;
+							}
+						}
+						else if((info1.getType()==VarInfo.STRING_TYPE && info2.getType()==VarInfo.STRING_TYPE) && operation==0){
+							((AssignmentContext)_localctx).info = new VarInfo(VarInfo.STRING_TYPE,((String) info1.getContent())+((String) info2.getContent()));
+						}
+						else if(((info1.getType()==VarInfo.INT_TYPE && info2.getType()==VarInfo.STRING_TYPE) || (info2.getType()==VarInfo.INT_TYPE && info1.getType()==VarInfo.STRING_TYPE)) && operation==2){
+							if(info1.getType()==VarInfo.INT_TYPE)
+								((AssignmentContext)_localctx).info = multString((String)info2.getContent(),(int)info1.getContent());
+							else
+								((AssignmentContext)_localctx).info = multString((String)info1.getContent(),(int)info2.getContent());
+						}
+						else{
+							((AssignmentContext)_localctx).info = new VarInfo(VarInfo.ERROR,"Tipos incompatibles");
+						}
+					}
+					else
+						((AssignmentContext)_localctx).info = new VarInfo(VarInfo.ERROR,"Variable utilizada sin inicializar: "+(((AssignmentContext)_localctx).lvalue!=null?_input.getText(((AssignmentContext)_localctx).lvalue.start,((AssignmentContext)_localctx).lvalue.stop):null));
+					varTable.put((((AssignmentContext)_localctx).lvalue!=null?_input.getText(((AssignmentContext)_localctx).lvalue.start,((AssignmentContext)_localctx).lvalue.stop):null),_localctx.info);
+
 				}
 				break;
 			}
@@ -2086,30 +2182,30 @@ public class rubyParser extends Parser {
 		Array_assignmentContext _localctx = new Array_assignmentContext(_ctx, getState());
 		enterRule(_localctx, 48, RULE_array_assignment);
 		try {
-			setState(369);
+			setState(383);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,20,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,21,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(360);
+				setState(374);
 				lvalue();
-				setState(361);
+				setState(375);
 				array_definition();
-				setState(362);
+				setState(376);
 				match(ASSIGN);
-				setState(363);
+				setState(377);
 				rvalue(0);
 				}
 				break;
 			case 2:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(365);
+				setState(379);
 				lvalue();
-				setState(366);
+				setState(380);
 				match(ASSIGN);
-				setState(367);
+				setState(381);
 				array_definition();
 				}
 				break;
@@ -2150,26 +2246,26 @@ public class rubyParser extends Parser {
 		Array_definitionContext _localctx = new Array_definitionContext(_ctx, getState());
 		enterRule(_localctx, 50, RULE_array_definition);
 		try {
-			setState(377);
+			setState(391);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,21,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,22,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(371);
+				setState(385);
 				match(LEFT_SBRACKET);
-				setState(372);
+				setState(386);
 				array_definition_elements(0);
-				setState(373);
+				setState(387);
 				match(RIGHT_SBRACKET);
 				}
 				break;
 			case 2:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(375);
+				setState(389);
 				match(LEFT_SBRACKET);
-				setState(376);
+				setState(390);
 				match(RIGHT_SBRACKET);
 				}
 				break;
@@ -2224,13 +2320,13 @@ public class rubyParser extends Parser {
 			enterOuterAlt(_localctx, 1);
 			{
 			{
-			setState(380);
+			setState(394);
 			rvalue(0);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(387);
+			setState(401);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,22,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,23,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
@@ -2239,18 +2335,18 @@ public class rubyParser extends Parser {
 					{
 					_localctx = new Array_definition_elementsContext(_parentctx, _parentState);
 					pushNewRecursionContext(_localctx, _startState, RULE_array_definition_elements);
-					setState(382);
+					setState(396);
 					if (!(precpred(_ctx, 1))) throw new FailedPredicateException(this, "precpred(_ctx, 1)");
-					setState(383);
+					setState(397);
 					match(COMMA);
-					setState(384);
+					setState(398);
 					rvalue(0);
 					}
 					} 
 				}
-				setState(389);
+				setState(403);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,22,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,23,_ctx);
 			}
 			}
 		}
@@ -2298,45 +2394,45 @@ public class rubyParser extends Parser {
 		Array_selectorContext _localctx = new Array_selectorContext(_ctx, getState());
 		enterRule(_localctx, 54, RULE_array_selector);
 		try {
-			setState(405);
+			setState(419);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,23,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,24,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(390);
+				setState(404);
 				id();
-				setState(391);
+				setState(405);
 				match(LEFT_SBRACKET);
-				setState(392);
+				setState(406);
 				rvalue(0);
-				setState(393);
+				setState(407);
 				match(RIGHT_SBRACKET);
 				}
 				break;
 			case 2:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(395);
+				setState(409);
 				id_global();
-				setState(396);
+				setState(410);
 				match(LEFT_SBRACKET);
-				setState(397);
+				setState(411);
 				rvalue(0);
-				setState(398);
+				setState(412);
 				match(RIGHT_SBRACKET);
 				}
 				break;
 			case 3:
 				enterOuterAlt(_localctx, 3);
 				{
-				setState(400);
+				setState(414);
 				function_call();
-				setState(401);
+				setState(415);
 				match(LEFT_SBRACKET);
-				setState(402);
+				setState(416);
 				rvalue(0);
-				setState(403);
+				setState(417);
 				match(RIGHT_SBRACKET);
 				}
 				break;
@@ -2357,12 +2453,11 @@ public class rubyParser extends Parser {
 		public VarInfo info;
 		public Int_resultContext i1;
 		public Int_tContext int_t;
-		public Int_resultContext i2;
 		public Token signo;
+		public Int_resultContext i2;
 		public Int_tContext int_t() {
 			return getRuleContext(Int_tContext.class,0);
 		}
-		public TerminalNode EXP() { return getToken(rubyParser.EXP, 0); }
 		public List<Int_resultContext> int_result() {
 			return getRuleContexts(Int_resultContext.class);
 		}
@@ -2405,51 +2500,31 @@ public class rubyParser extends Parser {
 			enterOuterAlt(_localctx, 1);
 			{
 			{
-			setState(408);
+			setState(422);
 			((Int_resultContext)_localctx).int_t = int_t();
 			((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE,((Int_resultContext)_localctx).int_t.value);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(428);
+			setState(437);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,25,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,26,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(426);
+					setState(435);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,24,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,25,_ctx) ) {
 					case 1:
 						{
 						_localctx = new Int_resultContext(_parentctx, _parentState);
 						_localctx.i1 = _prevctx;
 						_localctx.i1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_int_result);
-						setState(411);
-						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-						setState(412);
-						match(EXP);
-						setState(413);
-						((Int_resultContext)_localctx).i2 = int_result(5);
-
-						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Int_resultContext)_localctx).info = handleError(((Int_resultContext)_localctx).i1.info,((Int_resultContext)_localctx).i2.info);
-						          	else 
-						          		((Int_resultContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE, (int) Math.pow((int)((Int_resultContext)_localctx).i1.info.getContent(),(int)((Int_resultContext)_localctx).i2.info.getContent()));
-						          
-						}
-						break;
-					case 2:
-						{
-						_localctx = new Int_resultContext(_parentctx, _parentState);
-						_localctx.i1 = _prevctx;
-						_localctx.i1 = _prevctx;
-						pushNewRecursionContext(_localctx, _startState, RULE_int_result);
-						setState(416);
+						setState(425);
 						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-						setState(417);
+						setState(426);
 						((Int_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -2460,7 +2535,7 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(418);
+						setState(427);
 						((Int_resultContext)_localctx).i2 = int_result(4);
 
 						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
@@ -2474,15 +2549,15 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 3:
+					case 2:
 						{
 						_localctx = new Int_resultContext(_parentctx, _parentState);
 						_localctx.i1 = _prevctx;
 						_localctx.i1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_int_result);
-						setState(421);
+						setState(430);
 						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
-						setState(422);
+						setState(431);
 						((Int_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !(_la==PLUS || _la==MINUS) ) {
@@ -2493,7 +2568,7 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(423);
+						setState(432);
 						((Int_resultContext)_localctx).i2 = int_result(3);
 
 						          	if(((Int_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Int_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
@@ -2509,9 +2584,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(430);
+				setState(439);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,25,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,26,_ctx);
 			}
 			}
 		}
@@ -2530,11 +2605,10 @@ public class rubyParser extends Parser {
 		public VarInfo info;
 		public Float_resultContext f1;
 		public Int_resultContext i1;
-		public Float_resultContext f2;
 		public Token signo;
+		public Float_resultContext f2;
 		public Float_tContext float_t;
 		public Int_resultContext i2;
-		public TerminalNode EXP() { return getToken(rubyParser.EXP, 0); }
 		public Int_resultContext int_result() {
 			return getRuleContext(Int_resultContext.class,0);
 		}
@@ -2582,30 +2656,14 @@ public class rubyParser extends Parser {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(450);
+			setState(454);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,26,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,27,_ctx) ) {
 			case 1:
 				{
-				setState(432);
+				setState(441);
 				((Float_resultContext)_localctx).i1 = int_result(0);
-				setState(433);
-				match(EXP);
-				setState(434);
-				((Float_resultContext)_localctx).f2 = float_result(9);
-
-					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).i1.info,((Float_resultContext)_localctx).f2.info);
-					else 
-						((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((int)((Float_resultContext)_localctx).i1.info.getContent(),(double)((Float_resultContext)_localctx).f2.info.getContent()));
-
-				}
-				break;
-			case 2:
-				{
-				setState(437);
-				((Float_resultContext)_localctx).i1 = int_result(0);
-				setState(438);
+				setState(442);
 				((Float_resultContext)_localctx).signo = _input.LT(1);
 				_la = _input.LA(1);
 				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -2616,7 +2674,7 @@ public class rubyParser extends Parser {
 					_errHandler.reportMatch(this);
 					consume();
 				}
-				setState(439);
+				setState(443);
 				((Float_resultContext)_localctx).f2 = float_result(6);
 
 					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
@@ -2630,11 +2688,11 @@ public class rubyParser extends Parser {
 
 				}
 				break;
-			case 3:
+			case 2:
 				{
-				setState(442);
+				setState(446);
 				((Float_resultContext)_localctx).i1 = int_result(0);
-				setState(443);
+				setState(447);
 				((Float_resultContext)_localctx).signo = _input.LT(1);
 				_la = _input.LA(1);
 				if ( !(_la==PLUS || _la==MINUS) ) {
@@ -2645,7 +2703,7 @@ public class rubyParser extends Parser {
 					_errHandler.reportMatch(this);
 					consume();
 				}
-				setState(444);
+				setState(448);
 				((Float_resultContext)_localctx).f2 = float_result(3);
 
 					if(((Float_resultContext)_localctx).i1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
@@ -2658,55 +2716,35 @@ public class rubyParser extends Parser {
 
 				}
 				break;
-			case 4:
+			case 3:
 				{
-				setState(447);
+				setState(451);
 				((Float_resultContext)_localctx).float_t = float_t();
 				((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,((Float_resultContext)_localctx).float_t.value);
 				}
 				break;
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(484);
+			setState(478);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,28,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,29,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(482);
+					setState(476);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,27,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,28,_ctx) ) {
 					case 1:
 						{
 						_localctx = new Float_resultContext(_parentctx, _parentState);
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(452);
-						if (!(precpred(_ctx, 10))) throw new FailedPredicateException(this, "precpred(_ctx, 10)");
-						setState(453);
-						match(EXP);
-						setState(454);
-						((Float_resultContext)_localctx).f2 = float_result(11);
-
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).f2.info);
-						          	else 
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)((Float_resultContext)_localctx).f1.info.getContent(),(double)((Float_resultContext)_localctx).f2.info.getContent()));
-						          
-						}
-						break;
-					case 2:
-						{
-						_localctx = new Float_resultContext(_parentctx, _parentState);
-						_localctx.f1 = _prevctx;
-						_localctx.f1 = _prevctx;
-						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(457);
+						setState(456);
 						if (!(precpred(_ctx, 7))) throw new FailedPredicateException(this, "precpred(_ctx, 7)");
-						setState(458);
+						setState(457);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -2717,7 +2755,7 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(459);
+						setState(458);
 						((Float_resultContext)_localctx).f2 = float_result(8);
 
 						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR && ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
@@ -2731,15 +2769,15 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 3:
+					case 2:
 						{
 						_localctx = new Float_resultContext(_parentctx, _parentState);
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(462);
+						setState(461);
 						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-						setState(463);
+						setState(462);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !(_la==PLUS || _la==MINUS) ) {
@@ -2750,7 +2788,7 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(464);
+						setState(463);
 						((Float_resultContext)_localctx).f2 = float_result(5);
 
 						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).f2.info.getType()==VarInfo.ERROR)
@@ -2763,35 +2801,15 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 4:
+					case 3:
 						{
 						_localctx = new Float_resultContext(_parentctx, _parentState);
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(467);
-						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
-						setState(468);
-						match(EXP);
-						setState(469);
-						((Float_resultContext)_localctx).i2 = int_result(0);
-
-						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
-						          		((Float_resultContext)_localctx).info = handleError(((Float_resultContext)_localctx).f1.info,((Float_resultContext)_localctx).i2.info);
-						          	else 
-						          		((Float_resultContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE, (double) Math.pow((double)((Float_resultContext)_localctx).f1.info.getContent(),(int)((Float_resultContext)_localctx).i2.info.getContent()));
-						          
-						}
-						break;
-					case 5:
-						{
-						_localctx = new Float_resultContext(_parentctx, _parentState);
-						_localctx.f1 = _prevctx;
-						_localctx.f1 = _prevctx;
-						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(472);
+						setState(466);
 						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
-						setState(473);
+						setState(467);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << MOD))) != 0)) ) {
@@ -2802,7 +2820,7 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(474);
+						setState(468);
 						((Float_resultContext)_localctx).i2 = int_result(0);
 
 						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
@@ -2816,15 +2834,15 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 6:
+					case 4:
 						{
 						_localctx = new Float_resultContext(_parentctx, _parentState);
 						_localctx.f1 = _prevctx;
 						_localctx.f1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_float_result);
-						setState(477);
+						setState(471);
 						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
-						setState(478);
+						setState(472);
 						((Float_resultContext)_localctx).signo = _input.LT(1);
 						_la = _input.LA(1);
 						if ( !(_la==PLUS || _la==MINUS) ) {
@@ -2835,7 +2853,7 @@ public class rubyParser extends Parser {
 							_errHandler.reportMatch(this);
 							consume();
 						}
-						setState(479);
+						setState(473);
 						((Float_resultContext)_localctx).i2 = int_result(0);
 
 						          	if(((Float_resultContext)_localctx).f1.info.getType()==VarInfo.ERROR || ((Float_resultContext)_localctx).i2.info.getType()==VarInfo.ERROR)
@@ -2851,9 +2869,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(486);
+				setState(480);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,28,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,29,_ctx);
 			}
 			}
 		}
@@ -2912,16 +2930,16 @@ public class rubyParser extends Parser {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(496);
+			setState(490);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case INT:
 				{
-				setState(488);
+				setState(482);
 				((String_resultContext)_localctx).int_result = int_result(0);
-				setState(489);
+				setState(483);
 				match(MUL);
-				setState(490);
+				setState(484);
 				((String_resultContext)_localctx).string_result = string_result(2);
 
 					if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR || ((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
@@ -2936,7 +2954,7 @@ public class rubyParser extends Parser {
 				break;
 			case LITERAL:
 				{
-				setState(493);
+				setState(487);
 				((String_resultContext)_localctx).literal_t = literal_t();
 				((String_resultContext)_localctx).info = new VarInfo(VarInfo.STRING_TYPE, (((String_resultContext)_localctx).literal_t!=null?_input.getText(((String_resultContext)_localctx).literal_t.start,((String_resultContext)_localctx).literal_t.stop):null).substring(1,(((String_resultContext)_localctx).literal_t!=null?_input.getText(((String_resultContext)_localctx).literal_t.start,((String_resultContext)_localctx).literal_t.stop):null).length()-1));
 				}
@@ -2945,9 +2963,9 @@ public class rubyParser extends Parser {
 				throw new NoViableAltException(this);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(505);
+			setState(499);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,30,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,31,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
@@ -2956,11 +2974,11 @@ public class rubyParser extends Parser {
 					{
 					_localctx = new String_resultContext(_parentctx, _parentState);
 					pushNewRecursionContext(_localctx, _startState, RULE_string_result);
-					setState(498);
+					setState(492);
 					if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-					setState(499);
+					setState(493);
 					match(MUL);
-					setState(500);
+					setState(494);
 					((String_resultContext)_localctx).int_result = int_result(0);
 
 					          	if(((String_resultContext)_localctx).int_result.info.getType()==VarInfo.ERROR || ((String_resultContext)_localctx).string_result.info.getType()==VarInfo.ERROR)
@@ -2974,9 +2992,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(507);
+				setState(501);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,30,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,31,_ctx);
 			}
 			}
 		}
@@ -3016,20 +3034,20 @@ public class rubyParser extends Parser {
 		LvalueContext _localctx = new LvalueContext(_ctx, getState());
 		enterRule(_localctx, 62, RULE_lvalue);
 		try {
-			setState(510);
+			setState(504);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case ID:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(508);
+				setState(502);
 				id();
 				}
 				break;
 			case ID_GLOBAL:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(509);
+				setState(503);
 				id_global();
 				}
 				break;
@@ -3089,6 +3107,7 @@ public class rubyParser extends Parser {
 		}
 		public TerminalNode LEFT_RBRACKET() { return getToken(rubyParser.LEFT_RBRACKET, 0); }
 		public TerminalNode RIGHT_RBRACKET() { return getToken(rubyParser.RIGHT_RBRACKET, 0); }
+		public TerminalNode EXP() { return getToken(rubyParser.EXP, 0); }
 		public TerminalNode MUL() { return getToken(rubyParser.MUL, 0); }
 		public TerminalNode DIV() { return getToken(rubyParser.DIV, 0); }
 		public TerminalNode MOD() { return getToken(rubyParser.MOD, 0); }
@@ -3131,63 +3150,63 @@ public class rubyParser extends Parser {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(543);
+			setState(537);
 			_errHandler.sync(this);
-			switch ( getInterpreter().adaptivePredict(_input,32,_ctx) ) {
+			switch ( getInterpreter().adaptivePredict(_input,33,_ctx) ) {
 			case 1:
 				{
-				setState(513);
+				setState(507);
 				((RvalueContext)_localctx).lvalue = lvalue();
 				if(varTable.containsKey((((RvalueContext)_localctx).lvalue!=null?_input.getText(((RvalueContext)_localctx).lvalue.start,((RvalueContext)_localctx).lvalue.stop):null))) ((RvalueContext)_localctx).info = varTable.get((((RvalueContext)_localctx).lvalue!=null?_input.getText(((RvalueContext)_localctx).lvalue.start,((RvalueContext)_localctx).lvalue.stop):null)); else ((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR,"Variable utilizada sin inicializar: "+(((RvalueContext)_localctx).lvalue!=null?_input.getText(((RvalueContext)_localctx).lvalue.start,((RvalueContext)_localctx).lvalue.stop):null));
 				}
 				break;
 			case 2:
 				{
-				setState(516);
+				setState(510);
 				((RvalueContext)_localctx).int_result = int_result(0);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).int_result.info;
 				}
 				break;
 			case 3:
 				{
-				setState(519);
+				setState(513);
 				((RvalueContext)_localctx).float_result = float_result(0);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).float_result.info;
 				}
 				break;
 			case 4:
 				{
-				setState(522);
+				setState(516);
 				((RvalueContext)_localctx).string_result = string_result(0);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).string_result.info;
 				}
 				break;
 			case 5:
 				{
-				setState(525);
+				setState(519);
 				((RvalueContext)_localctx).assignment = assignment();
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).assignment.info;
 				}
 				break;
 			case 6:
 				{
-				setState(528);
+				setState(522);
 				((RvalueContext)_localctx).bool_t = bool_t();
 				((RvalueContext)_localctx).info = new VarInfo(VarInfo.BOOL_TYPE,((RvalueContext)_localctx).bool_t.value);
 				}
 				break;
 			case 7:
 				{
-				setState(531);
+				setState(525);
 				nil_t();
 				((RvalueContext)_localctx).info = new VarInfo(VarInfo.NIL_TYPE,null);
 				}
 				break;
 			case 8:
 				{
-				setState(534);
+				setState(528);
 				match(NOT);
-				setState(535);
+				setState(529);
 				((RvalueContext)_localctx).rvalue = rvalue(7);
 
 					if(((RvalueContext)_localctx).rvalue.info.getType()==VarInfo.ERROR)
@@ -3199,56 +3218,80 @@ public class rubyParser extends Parser {
 				break;
 			case 9:
 				{
-				setState(538);
+				setState(532);
 				match(LEFT_RBRACKET);
-				setState(539);
+				setState(533);
 				((RvalueContext)_localctx).rvalue = rvalue(0);
-				setState(540);
+				setState(534);
 				match(RIGHT_RBRACKET);
 				((RvalueContext)_localctx).info = ((RvalueContext)_localctx).rvalue.info;
 				}
 				break;
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(603);
+			setState(602);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,39,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,40,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(601);
+					setState(600);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,38,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,39,_ctx) ) {
 					case 1:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(545);
+						setState(539);
+						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
+						setState(540);
+						match(EXP);
+						setState(541);
+						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(9);
+
+						          	if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR || ((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
+						          		((RvalueContext)_localctx).info = handleError(((RvalueContext)_localctx).r1.info,((RvalueContext)_localctx).r2.info);
+						          	else if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.INT_TYPE && ((RvalueContext)_localctx).r2.info.getType()==VarInfo.INT_TYPE)
+						          		((RvalueContext)_localctx).info = new VarInfo(VarInfo.INT_TYPE, (int) Math.pow((int)((RvalueContext)_localctx).r1.info.getContent(),(int)((RvalueContext)_localctx).r2.info.getContent()));
+						          	else if((((RvalueContext)_localctx).r1.info.getType()==VarInfo.INT_TYPE || ((RvalueContext)_localctx).r1.info.getType()==VarInfo.FLOAT_TYPE) && (((RvalueContext)_localctx).r2.info.getType()==VarInfo.INT_TYPE || ((RvalueContext)_localctx).r2.info.getType()==VarInfo.FLOAT_TYPE))
+						          		((RvalueContext)_localctx).info = new VarInfo(VarInfo.FLOAT_TYPE,Math.pow(((Number)((RvalueContext)_localctx).r1.info.getContent()).doubleValue(),((Number)((RvalueContext)_localctx).r2.info.getContent()).doubleValue()));
+						          	else
+						          		((RvalueContext)_localctx).info = new VarInfo(VarInfo.ERROR, "Tipos incompatibles");
+						          
+						}
+						break;
+					case 2:
+						{
+						_localctx = new RvalueContext(_parentctx, _parentState);
+						_localctx.r1 = _prevctx;
+						_localctx.r1 = _prevctx;
+						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
+						setState(544);
 						if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
 						int operation=0;
-						setState(552);
+						setState(551);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case MUL:
 							{
-							setState(547);
+							setState(546);
 							match(MUL);
 							}
 							break;
 						case DIV:
 							{
-							setState(548);
+							setState(547);
 							match(DIV);
 							operation=1;
 							}
 							break;
 						case MOD:
 							{
-							setState(550);
+							setState(549);
 							match(MOD);
 							operation=2;
 							}
@@ -3256,7 +3299,7 @@ public class rubyParser extends Parser {
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(554);
+						setState(553);
 						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(7);
 
 						          	VarInfo info1=((RvalueContext)_localctx).r1.info, info2=((RvalueContext)_localctx).r2.info;
@@ -3292,27 +3335,27 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 2:
+					case 3:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(557);
+						setState(556);
 						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
 						int operation=0;
-						setState(562);
+						setState(561);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case PLUS:
 							{
-							setState(559);
+							setState(558);
 							match(PLUS);
 							}
 							break;
 						case MINUS:
 							{
-							setState(560);
+							setState(559);
 							match(MINUS);
 							operation=1;
 							}
@@ -3320,7 +3363,7 @@ public class rubyParser extends Parser {
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(564);
+						setState(563);
 						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(6);
 
 						          	VarInfo info1=((RvalueContext)_localctx).r1.info, info2=((RvalueContext)_localctx).r2.info;
@@ -3352,41 +3395,41 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 3:
+					case 4:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(567);
+						setState(566);
 						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
 						int selector=0;
-						setState(576);
+						setState(575);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case LESS:
 							{
-							setState(569);
+							setState(568);
 							match(LESS);
 							}
 							break;
 						case GREATER:
 							{
-							setState(570);
+							setState(569);
 							match(GREATER);
 							selector=1;
 							}
 							break;
 						case LESS_EQUAL:
 							{
-							setState(572);
+							setState(571);
 							match(LESS_EQUAL);
 							selector=2;
 							}
 							break;
 						case GREATER_EQUAL:
 							{
-							setState(574);
+							setState(573);
 							match(GREATER_EQUAL);
 							selector=3;
 							}
@@ -3394,7 +3437,7 @@ public class rubyParser extends Parser {
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(578);
+						setState(577);
 						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(5);
 
 						          	boolean val=false;
@@ -3444,35 +3487,35 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 4:
+					case 5:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(581);
+						setState(580);
 						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
 						boolean eq=false;
-						setState(586);
+						setState(585);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case EQUAL:
 							{
-							setState(583);
+							setState(582);
 							match(EQUAL);
 							eq=true;
 							}
 							break;
 						case NOT_EQUAL:
 							{
-							setState(585);
+							setState(584);
 							match(NOT_EQUAL);
 							}
 							break;
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(588);
+						setState(587);
 						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(4);
 
 						          	boolean val=false;
@@ -3498,35 +3541,35 @@ public class rubyParser extends Parser {
 						          
 						}
 						break;
-					case 5:
+					case 6:
 						{
 						_localctx = new RvalueContext(_parentctx, _parentState);
 						_localctx.r1 = _prevctx;
 						_localctx.r1 = _prevctx;
 						pushNewRecursionContext(_localctx, _startState, RULE_rvalue);
-						setState(591);
+						setState(590);
 						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
 						boolean modeOr=false;
-						setState(596);
+						setState(595);
 						_errHandler.sync(this);
 						switch (_input.LA(1)) {
 						case OR:
 							{
-							setState(593);
+							setState(592);
 							match(OR);
 							modeOr=false;
 							}
 							break;
 						case AND:
 							{
-							setState(595);
+							setState(594);
 							match(AND);
 							}
 							break;
 						default:
 							throw new NoViableAltException(this);
 						}
-						setState(598);
+						setState(597);
 						((RvalueContext)_localctx).r2 = ((RvalueContext)_localctx).rvalue = rvalue(3);
 
 						          	if(((RvalueContext)_localctx).r1.info.getType()==VarInfo.ERROR && ((RvalueContext)_localctx).r2.info.getType()==VarInfo.ERROR)
@@ -3543,9 +3586,9 @@ public class rubyParser extends Parser {
 					}
 					} 
 				}
-				setState(605);
+				setState(604);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,39,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,40,_ctx);
 			}
 			}
 		}
@@ -3582,7 +3625,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(606);
+			setState(605);
 			match(LITERAL);
 			}
 		}
@@ -3621,7 +3664,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(608);
+			setState(607);
 			((Float_tContext)_localctx).FLOAT = match(FLOAT);
 			((Float_tContext)_localctx).value = Double.parseDouble((((Float_tContext)_localctx).FLOAT!=null?((Float_tContext)_localctx).FLOAT.getText():null));
 			}
@@ -3661,7 +3704,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(611);
+			setState(610);
 			((Int_tContext)_localctx).INT = match(INT);
 			((Int_tContext)_localctx).value = (((Int_tContext)_localctx).INT!=null?Integer.valueOf(((Int_tContext)_localctx).INT.getText()):0);
 			}
@@ -3699,13 +3742,13 @@ public class rubyParser extends Parser {
 		Bool_tContext _localctx = new Bool_tContext(_ctx, getState());
 		enterRule(_localctx, 72, RULE_bool_t);
 		try {
-			setState(618);
+			setState(617);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case TRUE:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(614);
+				setState(613);
 				match(TRUE);
 				((Bool_tContext)_localctx).value = true;
 				}
@@ -3713,7 +3756,7 @@ public class rubyParser extends Parser {
 			case FALSE:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(616);
+				setState(615);
 				match(FALSE);
 				((Bool_tContext)_localctx).value = false;
 				}
@@ -3755,7 +3798,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(620);
+			setState(619);
 			match(NIL);
 			}
 		}
@@ -3792,7 +3835,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(622);
+			setState(621);
 			match(ID);
 			}
 		}
@@ -3829,7 +3872,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(624);
+			setState(623);
 			match(ID_GLOBAL);
 			}
 		}
@@ -3866,7 +3909,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(626);
+			setState(625);
 			match(ID_FUNCTION);
 			}
 		}
@@ -3918,18 +3961,18 @@ public class rubyParser extends Parser {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(631);
+			setState(630);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case SEMICOLON:
 				{
-				setState(629);
+				setState(628);
 				match(SEMICOLON);
 				}
 				break;
 			case CRLF:
 				{
-				setState(630);
+				setState(629);
 				crlf();
 				}
 				break;
@@ -3937,24 +3980,24 @@ public class rubyParser extends Parser {
 				throw new NoViableAltException(this);
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(639);
+			setState(638);
 			_errHandler.sync(this);
-			_alt = getInterpreter().adaptivePredict(_input,43,_ctx);
+			_alt = getInterpreter().adaptivePredict(_input,44,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(637);
+					setState(636);
 					_errHandler.sync(this);
-					switch ( getInterpreter().adaptivePredict(_input,42,_ctx) ) {
+					switch ( getInterpreter().adaptivePredict(_input,43,_ctx) ) {
 					case 1:
 						{
 						_localctx = new TerminatorContext(_parentctx, _parentState);
 						pushNewRecursionContext(_localctx, _startState, RULE_terminator);
-						setState(633);
+						setState(632);
 						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-						setState(634);
+						setState(633);
 						match(SEMICOLON);
 						}
 						break;
@@ -3962,18 +4005,18 @@ public class rubyParser extends Parser {
 						{
 						_localctx = new TerminatorContext(_parentctx, _parentState);
 						pushNewRecursionContext(_localctx, _startState, RULE_terminator);
-						setState(635);
+						setState(634);
 						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-						setState(636);
+						setState(635);
 						crlf();
 						}
 						break;
 					}
 					} 
 				}
-				setState(641);
+				setState(640);
 				_errHandler.sync(this);
-				_alt = getInterpreter().adaptivePredict(_input,43,_ctx);
+				_alt = getInterpreter().adaptivePredict(_input,44,_ctx);
 			}
 			}
 		}
@@ -4010,7 +4053,7 @@ public class rubyParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(642);
+			setState(641);
 			match(CRLF);
 			}
 		}
@@ -4105,65 +4148,61 @@ public class rubyParser extends Parser {
 	private boolean int_result_sempred(Int_resultContext _localctx, int predIndex) {
 		switch (predIndex) {
 		case 10:
-			return precpred(_ctx, 4);
-		case 11:
 			return precpred(_ctx, 3);
-		case 12:
+		case 11:
 			return precpred(_ctx, 2);
 		}
 		return true;
 	}
 	private boolean float_result_sempred(Float_resultContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 13:
-			return precpred(_ctx, 10);
-		case 14:
+		case 12:
 			return precpred(_ctx, 7);
-		case 15:
+		case 13:
 			return precpred(_ctx, 4);
-		case 16:
-			return precpred(_ctx, 8);
-		case 17:
+		case 14:
 			return precpred(_ctx, 5);
-		case 18:
+		case 15:
 			return precpred(_ctx, 2);
 		}
 		return true;
 	}
 	private boolean string_result_sempred(String_resultContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 19:
+		case 16:
 			return precpred(_ctx, 3);
 		}
 		return true;
 	}
 	private boolean rvalue_sempred(RvalueContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 20:
+		case 17:
+			return precpred(_ctx, 8);
+		case 18:
 			return precpred(_ctx, 6);
-		case 21:
+		case 19:
 			return precpred(_ctx, 5);
-		case 22:
+		case 20:
 			return precpred(_ctx, 4);
-		case 23:
+		case 21:
 			return precpred(_ctx, 3);
-		case 24:
+		case 22:
 			return precpred(_ctx, 2);
 		}
 		return true;
 	}
 	private boolean terminator_sempred(TerminatorContext _localctx, int predIndex) {
 		switch (predIndex) {
-		case 25:
+		case 23:
 			return precpred(_ctx, 4);
-		case 26:
+		case 24:
 			return precpred(_ctx, 3);
 		}
 		return true;
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3A\u0287\4\2\t\2\4"+
+		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3A\u0286\4\2\t\2\4"+
 		"\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t"+
 		"\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22"+
 		"\4\23\t\23\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31\t\31"+
@@ -4189,37 +4228,37 @@ public class rubyParser extends Parser {
 		"\3\26\3\26\3\26\3\26\3\26\3\26\3\26\7\26\u0148\n\26\f\26\16\26\u014b\13"+
 		"\26\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\3\27\5\27\u0158"+
 		"\n\27\3\30\3\30\3\30\3\30\5\30\u015e\n\30\3\31\3\31\3\31\3\31\3\31\3\31"+
-		"\3\31\3\31\3\31\5\31\u0169\n\31\3\32\3\32\3\32\3\32\3\32\3\32\3\32\3\32"+
-		"\3\32\5\32\u0174\n\32\3\33\3\33\3\33\3\33\3\33\3\33\5\33\u017c\n\33\3"+
-		"\34\3\34\3\34\3\34\3\34\3\34\7\34\u0184\n\34\f\34\16\34\u0187\13\34\3"+
-		"\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3"+
-		"\35\5\35\u0198\n\35\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36"+
-		"\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\7\36\u01ad\n\36\f\36\16"+
-		"\36\u01b0\13\36\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37"+
-		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\5\37\u01c5\n\37\3\37\3\37\3\37"+
-		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37"+
-		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\7\37"+
-		"\u01e5\n\37\f\37\16\37\u01e8\13\37\3 \3 \3 \3 \3 \3 \3 \3 \3 \5 \u01f3"+
-		"\n \3 \3 \3 \3 \3 \7 \u01fa\n \f \16 \u01fd\13 \3!\3!\5!\u0201\n!\3\""+
+		"\3\31\3\31\3\31\3\31\3\31\3\31\3\31\3\31\3\31\3\31\3\31\3\31\5\31\u0172"+
+		"\n\31\3\31\3\31\3\31\5\31\u0177\n\31\3\32\3\32\3\32\3\32\3\32\3\32\3\32"+
+		"\3\32\3\32\5\32\u0182\n\32\3\33\3\33\3\33\3\33\3\33\3\33\5\33\u018a\n"+
+		"\33\3\34\3\34\3\34\3\34\3\34\3\34\7\34\u0192\n\34\f\34\16\34\u0195\13"+
+		"\34\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3\35\3"+
+		"\35\3\35\5\35\u01a6\n\35\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36\3\36"+
+		"\3\36\3\36\3\36\3\36\3\36\7\36\u01b6\n\36\f\36\16\36\u01b9\13\36\3\37"+
+		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\5\37"+
+		"\u01c9\n\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37"+
+		"\3\37\3\37\3\37\3\37\3\37\3\37\3\37\3\37\7\37\u01df\n\37\f\37\16\37\u01e2"+
+		"\13\37\3 \3 \3 \3 \3 \3 \3 \3 \3 \5 \u01ed\n \3 \3 \3 \3 \3 \7 \u01f4"+
+		"\n \f \16 \u01f7\13 \3!\3!\5!\u01fb\n!\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\""+
 		"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3"+
-		"\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u0222\n\"\3\"\3"+
-		"\"\3\"\3\"\3\"\3\"\3\"\5\"\u022b\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5"+
-		"\"\u0235\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u0243"+
-		"\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u024d\n\"\3\"\3\"\3\"\3\"\3\""+
-		"\3\"\3\"\3\"\5\"\u0257\n\"\3\"\3\"\3\"\7\"\u025c\n\"\f\"\16\"\u025f\13"+
-		"\"\3#\3#\3$\3$\3$\3%\3%\3%\3&\3&\3&\3&\5&\u026d\n&\3\'\3\'\3(\3(\3)\3"+
-		")\3*\3*\3+\3+\3+\5+\u027a\n+\3+\3+\3+\3+\7+\u0280\n+\f+\16+\u0283\13+"+
-		"\3,\3,\3,\2\r\4\24\34&*\66:<>BT-\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36"+
-		" \"$&(*,.\60\62\64\668:<>@BDFHJLNPRTV\2\5\3\2&+\3\2\33\35\3\2\31\32\u02ab"+
-		"\2X\3\2\2\2\4Z\3\2\2\2\6q\3\2\2\2\bs\3\2\2\2\nv\3\2\2\2\fz\3\2\2\2\16"+
-		"\u0085\3\2\2\2\20\u0089\3\2\2\2\22\u0090\3\2\2\2\24\u0092\3\2\2\2\26\u009d"+
-		"\3\2\2\2\30\u00ac\3\2\2\2\32\u00ae\3\2\2\2\34\u00b0\3\2\2\2\36\u00ce\3"+
-		"\2\2\2 \u00f4\3\2\2\2\"\u00f6\3\2\2\2$\u00fc\3\2\2\2&\u010a\3\2\2\2(\u0131"+
-		"\3\2\2\2*\u013b\3\2\2\2,\u0157\3\2\2\2.\u015d\3\2\2\2\60\u0168\3\2\2\2"+
-		"\62\u0173\3\2\2\2\64\u017b\3\2\2\2\66\u017d\3\2\2\28\u0197\3\2\2\2:\u0199"+
-		"\3\2\2\2<\u01c4\3\2\2\2>\u01f2\3\2\2\2@\u0200\3\2\2\2B\u0221\3\2\2\2D"+
-		"\u0260\3\2\2\2F\u0262\3\2\2\2H\u0265\3\2\2\2J\u026c\3\2\2\2L\u026e\3\2"+
-		"\2\2N\u0270\3\2\2\2P\u0272\3\2\2\2R\u0274\3\2\2\2T\u0279\3\2\2\2V\u0284"+
+		"\"\3\"\3\"\3\"\3\"\3\"\5\"\u021c\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3"+
+		"\"\3\"\3\"\3\"\5\"\u022a\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u0234"+
+		"\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u0242\n\"\3\""+
+		"\3\"\3\"\3\"\3\"\3\"\3\"\3\"\5\"\u024c\n\"\3\"\3\"\3\"\3\"\3\"\3\"\3\""+
+		"\3\"\5\"\u0256\n\"\3\"\3\"\3\"\7\"\u025b\n\"\f\"\16\"\u025e\13\"\3#\3"+
+		"#\3$\3$\3$\3%\3%\3%\3&\3&\3&\3&\5&\u026c\n&\3\'\3\'\3(\3(\3)\3)\3*\3*"+
+		"\3+\3+\3+\5+\u0279\n+\3+\3+\3+\3+\7+\u027f\n+\f+\16+\u0282\13+\3,\3,\3"+
+		",\2\r\4\24\34&*\66:<>BT-\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36 \"$&("+
+		"*,.\60\62\64\668:<>@BDFHJLNPRTV\2\4\3\2\33\35\3\2\31\32\u02ac\2X\3\2\2"+
+		"\2\4Z\3\2\2\2\6q\3\2\2\2\bs\3\2\2\2\nv\3\2\2\2\fz\3\2\2\2\16\u0085\3\2"+
+		"\2\2\20\u0089\3\2\2\2\22\u0090\3\2\2\2\24\u0092\3\2\2\2\26\u009d\3\2\2"+
+		"\2\30\u00ac\3\2\2\2\32\u00ae\3\2\2\2\34\u00b0\3\2\2\2\36\u00ce\3\2\2\2"+
+		" \u00f4\3\2\2\2\"\u00f6\3\2\2\2$\u00fc\3\2\2\2&\u010a\3\2\2\2(\u0131\3"+
+		"\2\2\2*\u013b\3\2\2\2,\u0157\3\2\2\2.\u015d\3\2\2\2\60\u0176\3\2\2\2\62"+
+		"\u0181\3\2\2\2\64\u0189\3\2\2\2\66\u018b\3\2\2\28\u01a5\3\2\2\2:\u01a7"+
+		"\3\2\2\2<\u01c8\3\2\2\2>\u01ec\3\2\2\2@\u01fa\3\2\2\2B\u021b\3\2\2\2D"+
+		"\u025f\3\2\2\2F\u0261\3\2\2\2H\u0264\3\2\2\2J\u026b\3\2\2\2L\u026d\3\2"+
+		"\2\2N\u026f\3\2\2\2P\u0271\3\2\2\2R\u0273\3\2\2\2T\u0278\3\2\2\2V\u0283"+
 		"\3\2\2\2XY\5\4\3\2Y\3\3\2\2\2Z[\b\3\1\2[\\\5\6\4\2\\]\5T+\2]d\3\2\2\2"+
 		"^_\f\4\2\2_`\5\6\4\2`a\5T+\2ac\3\2\2\2b^\3\2\2\2cf\3\2\2\2db\3\2\2\2d"+
 		"e\3\2\2\2e\5\3\2\2\2fd\3\2\2\2gr\5\n\6\2hr\5\b\5\2ir\5 \21\2jr\5\"\22"+
@@ -4297,104 +4336,104 @@ public class rubyParser extends Parser {
 		"-\3\2\2\2\u0159\u015a\5B\"\2\u015a\u015b\7\5\2\2\u015b\u015e\3\2\2\2\u015c"+
 		"\u015e\5B\"\2\u015d\u0159\3\2\2\2\u015d\u015c\3\2\2\2\u015e/\3\2\2\2\u015f"+
 		"\u0160\5@!\2\u0160\u0161\7%\2\2\u0161\u0162\5B\"\2\u0162\u0163\b\31\1"+
-		"\2\u0163\u0169\3\2\2\2\u0164\u0165\5@!\2\u0165\u0166\t\2\2\2\u0166\u0167"+
-		"\5B\"\2\u0167\u0169\3\2\2\2\u0168\u015f\3\2\2\2\u0168\u0164\3\2\2\2\u0169"+
-		"\61\3\2\2\2\u016a\u016b\5@!\2\u016b\u016c\5\64\33\2\u016c\u016d\7%\2\2"+
-		"\u016d\u016e\5B\"\2\u016e\u0174\3\2\2\2\u016f\u0170\5@!\2\u0170\u0171"+
-		"\7%\2\2\u0171\u0172\5\64\33\2\u0172\u0174\3\2\2\2\u0173\u016a\3\2\2\2"+
-		"\u0173\u016f\3\2\2\2\u0174\63\3\2\2\2\u0175\u0176\7\67\2\2\u0176\u0177"+
-		"\5\66\34\2\u0177\u0178\78\2\2\u0178\u017c\3\2\2\2\u0179\u017a\7\67\2\2"+
-		"\u017a\u017c\78\2\2\u017b\u0175\3\2\2\2\u017b\u0179\3\2\2\2\u017c\65\3"+
-		"\2\2\2\u017d\u017e\b\34\1\2\u017e\u017f\5B\"\2\u017f\u0185\3\2\2\2\u0180"+
-		"\u0181\f\3\2\2\u0181\u0182\7\5\2\2\u0182\u0184\5B\"\2\u0183\u0180\3\2"+
-		"\2\2\u0184\u0187\3\2\2\2\u0185\u0183\3\2\2\2\u0185\u0186\3\2\2\2\u0186"+
-		"\67\3\2\2\2\u0187\u0185\3\2\2\2\u0188\u0189\5N(\2\u0189\u018a\7\67\2\2"+
-		"\u018a\u018b\5B\"\2\u018b\u018c\78\2\2\u018c\u0198\3\2\2\2\u018d\u018e"+
-		"\5P)\2\u018e\u018f\7\67\2\2\u018f\u0190\5B\"\2\u0190\u0191\78\2\2\u0191"+
-		"\u0198\3\2\2\2\u0192\u0193\5\30\r\2\u0193\u0194\7\67\2\2\u0194\u0195\5"+
-		"B\"\2\u0195\u0196\78\2\2\u0196\u0198\3\2\2\2\u0197\u0188\3\2\2\2\u0197"+
-		"\u018d\3\2\2\2\u0197\u0192\3\2\2\2\u01989\3\2\2\2\u0199\u019a\b\36\1\2"+
-		"\u019a\u019b\5H%\2\u019b\u019c\b\36\1\2\u019c\u01ae\3\2\2\2\u019d\u019e"+
-		"\f\6\2\2\u019e\u019f\7\36\2\2\u019f\u01a0\5:\36\7\u01a0\u01a1\b\36\1\2"+
-		"\u01a1\u01ad\3\2\2\2\u01a2\u01a3\f\5\2\2\u01a3\u01a4\t\3\2\2\u01a4\u01a5"+
-		"\5:\36\6\u01a5\u01a6\b\36\1\2\u01a6\u01ad\3\2\2\2\u01a7\u01a8\f\4\2\2"+
-		"\u01a8\u01a9\t\4\2\2\u01a9\u01aa\5:\36\5\u01aa\u01ab\b\36\1\2\u01ab\u01ad"+
-		"\3\2\2\2\u01ac\u019d\3\2\2\2\u01ac\u01a2\3\2\2\2\u01ac\u01a7\3\2\2\2\u01ad"+
-		"\u01b0\3\2\2\2\u01ae\u01ac\3\2\2\2\u01ae\u01af\3\2\2\2\u01af;\3\2\2\2"+
-		"\u01b0\u01ae\3\2\2\2\u01b1\u01b2\b\37\1\2\u01b2\u01b3\5:\36\2\u01b3\u01b4"+
-		"\7\36\2\2\u01b4\u01b5\5<\37\13\u01b5\u01b6\b\37\1\2\u01b6\u01c5\3\2\2"+
-		"\2\u01b7\u01b8\5:\36\2\u01b8\u01b9\t\3\2\2\u01b9\u01ba\5<\37\b\u01ba\u01bb"+
-		"\b\37\1\2\u01bb\u01c5\3\2\2\2\u01bc\u01bd\5:\36\2\u01bd\u01be\t\4\2\2"+
-		"\u01be\u01bf\5<\37\5\u01bf\u01c0\b\37\1\2\u01c0\u01c5\3\2\2\2\u01c1\u01c2"+
-		"\5F$\2\u01c2\u01c3\b\37\1\2\u01c3\u01c5\3\2\2\2\u01c4\u01b1\3\2\2\2\u01c4"+
-		"\u01b7\3\2\2\2\u01c4\u01bc\3\2\2\2\u01c4\u01c1\3\2\2\2\u01c5\u01e6\3\2"+
-		"\2\2\u01c6\u01c7\f\f\2\2\u01c7\u01c8\7\36\2\2\u01c8\u01c9\5<\37\r\u01c9"+
-		"\u01ca\b\37\1\2\u01ca\u01e5\3\2\2\2\u01cb\u01cc\f\t\2\2\u01cc\u01cd\t"+
-		"\3\2\2\u01cd\u01ce\5<\37\n\u01ce\u01cf\b\37\1\2\u01cf\u01e5\3\2\2\2\u01d0"+
-		"\u01d1\f\6\2\2\u01d1\u01d2\t\4\2\2\u01d2\u01d3\5<\37\7\u01d3\u01d4\b\37"+
-		"\1\2\u01d4\u01e5\3\2\2\2\u01d5\u01d6\f\n\2\2\u01d6\u01d7\7\36\2\2\u01d7"+
-		"\u01d8\5:\36\2\u01d8\u01d9\b\37\1\2\u01d9\u01e5\3\2\2\2\u01da\u01db\f"+
-		"\7\2\2\u01db\u01dc\t\3\2\2\u01dc\u01dd\5:\36\2\u01dd\u01de\b\37\1\2\u01de"+
-		"\u01e5\3\2\2\2\u01df\u01e0\f\4\2\2\u01e0\u01e1\t\4\2\2\u01e1\u01e2\5:"+
-		"\36\2\u01e2\u01e3\b\37\1\2\u01e3\u01e5\3\2\2\2\u01e4\u01c6\3\2\2\2\u01e4"+
-		"\u01cb\3\2\2\2\u01e4\u01d0\3\2\2\2\u01e4\u01d5\3\2\2\2\u01e4\u01da\3\2"+
-		"\2\2\u01e4\u01df\3\2\2\2\u01e5\u01e8\3\2\2\2\u01e6\u01e4\3\2\2\2\u01e6"+
-		"\u01e7\3\2\2\2\u01e7=\3\2\2\2\u01e8\u01e6\3\2\2\2\u01e9\u01ea\b \1\2\u01ea"+
-		"\u01eb\5:\36\2\u01eb\u01ec\7\33\2\2\u01ec\u01ed\5> \4\u01ed\u01ee\b \1"+
-		"\2\u01ee\u01f3\3\2\2\2\u01ef\u01f0\5D#\2\u01f0\u01f1\b \1\2\u01f1\u01f3"+
-		"\3\2\2\2\u01f2\u01e9\3\2\2\2\u01f2\u01ef\3\2\2\2\u01f3\u01fb\3\2\2\2\u01f4"+
-		"\u01f5\f\5\2\2\u01f5\u01f6\7\33\2\2\u01f6\u01f7\5:\36\2\u01f7\u01f8\b"+
-		" \1\2\u01f8\u01fa\3\2\2\2\u01f9\u01f4\3\2\2\2\u01fa\u01fd\3\2\2\2\u01fb"+
-		"\u01f9\3\2\2\2\u01fb\u01fc\3\2\2\2\u01fc?\3\2\2\2\u01fd\u01fb\3\2\2\2"+
-		"\u01fe\u0201\5N(\2\u01ff\u0201\5P)\2\u0200\u01fe\3\2\2\2\u0200\u01ff\3"+
-		"\2\2\2\u0201A\3\2\2\2\u0202\u0203\b\"\1\2\u0203\u0204\5@!\2\u0204\u0205"+
-		"\b\"\1\2\u0205\u0222\3\2\2\2\u0206\u0207\5:\36\2\u0207\u0208\b\"\1\2\u0208"+
-		"\u0222\3\2\2\2\u0209\u020a\5<\37\2\u020a\u020b\b\"\1\2\u020b\u0222\3\2"+
-		"\2\2\u020c\u020d\5> \2\u020d\u020e\b\"\1\2\u020e\u0222\3\2\2\2\u020f\u0210"+
-		"\5\60\31\2\u0210\u0211\b\"\1\2\u0211\u0222\3\2\2\2\u0212\u0213\5J&\2\u0213"+
-		"\u0214\b\"\1\2\u0214\u0222\3\2\2\2\u0215\u0216\5L\'\2\u0216\u0217\b\""+
-		"\1\2\u0217\u0222\3\2\2\2\u0218\u0219\7\64\2\2\u0219\u021a\5B\"\t\u021a"+
-		"\u021b\b\"\1\2\u021b\u0222\3\2\2\2\u021c\u021d\7\65\2\2\u021d\u021e\5"+
-		"B\"\2\u021e\u021f\7\66\2\2\u021f\u0220\b\"\1\2\u0220\u0222\3\2\2\2\u0221"+
-		"\u0202\3\2\2\2\u0221\u0206\3\2\2\2\u0221\u0209\3\2\2\2\u0221\u020c\3\2"+
-		"\2\2\u0221\u020f\3\2\2\2\u0221\u0212\3\2\2\2\u0221\u0215\3\2\2\2\u0221"+
-		"\u0218\3\2\2\2\u0221\u021c\3\2\2\2\u0222\u025d\3\2\2\2\u0223\u0224\f\b"+
-		"\2\2\u0224\u022a\b\"\1\2\u0225\u022b\7\33\2\2\u0226\u0227\7\34\2\2\u0227"+
-		"\u022b\b\"\1\2\u0228\u0229\7\35\2\2\u0229\u022b\b\"\1\2\u022a\u0225\3"+
-		"\2\2\2\u022a\u0226\3\2\2\2\u022a\u0228\3\2\2\2\u022b\u022c\3\2\2\2\u022c"+
-		"\u022d\5B\"\t\u022d\u022e\b\"\1\2\u022e\u025c\3\2\2\2\u022f\u0230\f\7"+
-		"\2\2\u0230\u0234\b\"\1\2\u0231\u0235\7\31\2\2\u0232\u0233\7\32\2\2\u0233"+
-		"\u0235\b\"\1\2\u0234\u0231\3\2\2\2\u0234\u0232\3\2\2\2\u0235\u0236\3\2"+
-		"\2\2\u0236\u0237\5B\"\b\u0237\u0238\b\"\1\2\u0238\u025c\3\2\2\2\u0239"+
-		"\u023a\f\6\2\2\u023a\u0242\b\"\1\2\u023b\u0243\7\"\2\2\u023c\u023d\7!"+
-		"\2\2\u023d\u0243\b\"\1\2\u023e\u023f\7#\2\2\u023f\u0243\b\"\1\2\u0240"+
-		"\u0241\7$\2\2\u0241\u0243\b\"\1\2\u0242\u023b\3\2\2\2\u0242\u023c\3\2"+
-		"\2\2\u0242\u023e\3\2\2\2\u0242\u0240\3\2\2\2\u0243\u0244\3\2\2\2\u0244"+
-		"\u0245\5B\"\7\u0245\u0246\b\"\1\2\u0246\u025c\3\2\2\2\u0247\u0248\f\5"+
-		"\2\2\u0248\u024c\b\"\1\2\u0249\u024a\7\37\2\2\u024a\u024d\b\"\1\2\u024b"+
-		"\u024d\7 \2\2\u024c\u0249\3\2\2\2\u024c\u024b\3\2\2\2\u024d\u024e\3\2"+
-		"\2\2\u024e\u024f\5B\"\6\u024f\u0250\b\"\1\2\u0250\u025c\3\2\2\2\u0251"+
-		"\u0252\f\4\2\2\u0252\u0256\b\"\1\2\u0253\u0254\7\63\2\2\u0254\u0257\b"+
-		"\"\1\2\u0255\u0257\7\62\2\2\u0256\u0253\3\2\2\2\u0256\u0255\3\2\2\2\u0257"+
-		"\u0258\3\2\2\2\u0258\u0259\5B\"\5\u0259\u025a\b\"\1\2\u025a\u025c\3\2"+
-		"\2\2\u025b\u0223\3\2\2\2\u025b\u022f\3\2\2\2\u025b\u0239\3\2\2\2\u025b"+
-		"\u0247\3\2\2\2\u025b\u0251\3\2\2\2\u025c\u025f\3\2\2\2\u025d\u025b\3\2"+
-		"\2\2\u025d\u025e\3\2\2\2\u025eC\3\2\2\2\u025f\u025d\3\2\2\2\u0260\u0261"+
-		"\7\4\2\2\u0261E\3\2\2\2\u0262\u0263\7>\2\2\u0263\u0264\b$\1\2\u0264G\3"+
-		"\2\2\2\u0265\u0266\7=\2\2\u0266\u0267\b%\1\2\u0267I\3\2\2\2\u0268\u0269"+
-		"\7\27\2\2\u0269\u026d\b&\1\2\u026a\u026b\7\30\2\2\u026b\u026d\b&\1\2\u026c"+
-		"\u0268\3\2\2\2\u026c\u026a\3\2\2\2\u026dK\3\2\2\2\u026e\u026f\79\2\2\u026f"+
-		"M\3\2\2\2\u0270\u0271\7?\2\2\u0271O\3\2\2\2\u0272\u0273\7@\2\2\u0273Q"+
-		"\3\2\2\2\u0274\u0275\7A\2\2\u0275S\3\2\2\2\u0276\u0277\b+\1\2\u0277\u027a"+
-		"\7\6\2\2\u0278\u027a\5V,\2\u0279\u0276\3\2\2\2\u0279\u0278\3\2\2\2\u027a"+
-		"\u0281\3\2\2\2\u027b\u027c\f\6\2\2\u027c\u0280\7\6\2\2\u027d\u027e\f\5"+
-		"\2\2\u027e\u0280\5V,\2\u027f\u027b\3\2\2\2\u027f\u027d\3\2\2\2\u0280\u0283"+
-		"\3\2\2\2\u0281\u027f\3\2\2\2\u0281\u0282\3\2\2\2\u0282U\3\2\2\2\u0283"+
-		"\u0281\3\2\2\2\u0284\u0285\7\7\2\2\u0285W\3\2\2\2.dq\u0085\u0089\u0090"+
+		"\2\u0163\u0177\3\2\2\2\u0164\u0165\5@!\2\u0165\u0171\b\31\1\2\u0166\u0172"+
+		"\7&\2\2\u0167\u0168\7\'\2\2\u0168\u0172\b\31\1\2\u0169\u016a\7(\2\2\u016a"+
+		"\u0172\b\31\1\2\u016b\u016c\7)\2\2\u016c\u0172\b\31\1\2\u016d\u016e\7"+
+		"*\2\2\u016e\u0172\b\31\1\2\u016f\u0170\7+\2\2\u0170\u0172\b\31\1\2\u0171"+
+		"\u0166\3\2\2\2\u0171\u0167\3\2\2\2\u0171\u0169\3\2\2\2\u0171\u016b\3\2"+
+		"\2\2\u0171\u016d\3\2\2\2\u0171\u016f\3\2\2\2\u0172\u0173\3\2\2\2\u0173"+
+		"\u0174\5B\"\2\u0174\u0175\b\31\1\2\u0175\u0177\3\2\2\2\u0176\u015f\3\2"+
+		"\2\2\u0176\u0164\3\2\2\2\u0177\61\3\2\2\2\u0178\u0179\5@!\2\u0179\u017a"+
+		"\5\64\33\2\u017a\u017b\7%\2\2\u017b\u017c\5B\"\2\u017c\u0182\3\2\2\2\u017d"+
+		"\u017e\5@!\2\u017e\u017f\7%\2\2\u017f\u0180\5\64\33\2\u0180\u0182\3\2"+
+		"\2\2\u0181\u0178\3\2\2\2\u0181\u017d\3\2\2\2\u0182\63\3\2\2\2\u0183\u0184"+
+		"\7\67\2\2\u0184\u0185\5\66\34\2\u0185\u0186\78\2\2\u0186\u018a\3\2\2\2"+
+		"\u0187\u0188\7\67\2\2\u0188\u018a\78\2\2\u0189\u0183\3\2\2\2\u0189\u0187"+
+		"\3\2\2\2\u018a\65\3\2\2\2\u018b\u018c\b\34\1\2\u018c\u018d\5B\"\2\u018d"+
+		"\u0193\3\2\2\2\u018e\u018f\f\3\2\2\u018f\u0190\7\5\2\2\u0190\u0192\5B"+
+		"\"\2\u0191\u018e\3\2\2\2\u0192\u0195\3\2\2\2\u0193\u0191\3\2\2\2\u0193"+
+		"\u0194\3\2\2\2\u0194\67\3\2\2\2\u0195\u0193\3\2\2\2\u0196\u0197\5N(\2"+
+		"\u0197\u0198\7\67\2\2\u0198\u0199\5B\"\2\u0199\u019a\78\2\2\u019a\u01a6"+
+		"\3\2\2\2\u019b\u019c\5P)\2\u019c\u019d\7\67\2\2\u019d\u019e\5B\"\2\u019e"+
+		"\u019f\78\2\2\u019f\u01a6\3\2\2\2\u01a0\u01a1\5\30\r\2\u01a1\u01a2\7\67"+
+		"\2\2\u01a2\u01a3\5B\"\2\u01a3\u01a4\78\2\2\u01a4\u01a6\3\2\2\2\u01a5\u0196"+
+		"\3\2\2\2\u01a5\u019b\3\2\2\2\u01a5\u01a0\3\2\2\2\u01a69\3\2\2\2\u01a7"+
+		"\u01a8\b\36\1\2\u01a8\u01a9\5H%\2\u01a9\u01aa\b\36\1\2\u01aa\u01b7\3\2"+
+		"\2\2\u01ab\u01ac\f\5\2\2\u01ac\u01ad\t\2\2\2\u01ad\u01ae\5:\36\6\u01ae"+
+		"\u01af\b\36\1\2\u01af\u01b6\3\2\2\2\u01b0\u01b1\f\4\2\2\u01b1\u01b2\t"+
+		"\3\2\2\u01b2\u01b3\5:\36\5\u01b3\u01b4\b\36\1\2\u01b4\u01b6\3\2\2\2\u01b5"+
+		"\u01ab\3\2\2\2\u01b5\u01b0\3\2\2\2\u01b6\u01b9\3\2\2\2\u01b7\u01b5\3\2"+
+		"\2\2\u01b7\u01b8\3\2\2\2\u01b8;\3\2\2\2\u01b9\u01b7\3\2\2\2\u01ba\u01bb"+
+		"\b\37\1\2\u01bb\u01bc\5:\36\2\u01bc\u01bd\t\2\2\2\u01bd\u01be\5<\37\b"+
+		"\u01be\u01bf\b\37\1\2\u01bf\u01c9\3\2\2\2\u01c0\u01c1\5:\36\2\u01c1\u01c2"+
+		"\t\3\2\2\u01c2\u01c3\5<\37\5\u01c3\u01c4\b\37\1\2\u01c4\u01c9\3\2\2\2"+
+		"\u01c5\u01c6\5F$\2\u01c6\u01c7\b\37\1\2\u01c7\u01c9\3\2\2\2\u01c8\u01ba"+
+		"\3\2\2\2\u01c8\u01c0\3\2\2\2\u01c8\u01c5\3\2\2\2\u01c9\u01e0\3\2\2\2\u01ca"+
+		"\u01cb\f\t\2\2\u01cb\u01cc\t\2\2\2\u01cc\u01cd\5<\37\n\u01cd\u01ce\b\37"+
+		"\1\2\u01ce\u01df\3\2\2\2\u01cf\u01d0\f\6\2\2\u01d0\u01d1\t\3\2\2\u01d1"+
+		"\u01d2\5<\37\7\u01d2\u01d3\b\37\1\2\u01d3\u01df\3\2\2\2\u01d4\u01d5\f"+
+		"\7\2\2\u01d5\u01d6\t\2\2\2\u01d6\u01d7\5:\36\2\u01d7\u01d8\b\37\1\2\u01d8"+
+		"\u01df\3\2\2\2\u01d9\u01da\f\4\2\2\u01da\u01db\t\3\2\2\u01db\u01dc\5:"+
+		"\36\2\u01dc\u01dd\b\37\1\2\u01dd\u01df\3\2\2\2\u01de\u01ca\3\2\2\2\u01de"+
+		"\u01cf\3\2\2\2\u01de\u01d4\3\2\2\2\u01de\u01d9\3\2\2\2\u01df\u01e2\3\2"+
+		"\2\2\u01e0\u01de\3\2\2\2\u01e0\u01e1\3\2\2\2\u01e1=\3\2\2\2\u01e2\u01e0"+
+		"\3\2\2\2\u01e3\u01e4\b \1\2\u01e4\u01e5\5:\36\2\u01e5\u01e6\7\33\2\2\u01e6"+
+		"\u01e7\5> \4\u01e7\u01e8\b \1\2\u01e8\u01ed\3\2\2\2\u01e9\u01ea\5D#\2"+
+		"\u01ea\u01eb\b \1\2\u01eb\u01ed\3\2\2\2\u01ec\u01e3\3\2\2\2\u01ec\u01e9"+
+		"\3\2\2\2\u01ed\u01f5\3\2\2\2\u01ee\u01ef\f\5\2\2\u01ef\u01f0\7\33\2\2"+
+		"\u01f0\u01f1\5:\36\2\u01f1\u01f2\b \1\2\u01f2\u01f4\3\2\2\2\u01f3\u01ee"+
+		"\3\2\2\2\u01f4\u01f7\3\2\2\2\u01f5\u01f3\3\2\2\2\u01f5\u01f6\3\2\2\2\u01f6"+
+		"?\3\2\2\2\u01f7\u01f5\3\2\2\2\u01f8\u01fb\5N(\2\u01f9\u01fb\5P)\2\u01fa"+
+		"\u01f8\3\2\2\2\u01fa\u01f9\3\2\2\2\u01fbA\3\2\2\2\u01fc\u01fd\b\"\1\2"+
+		"\u01fd\u01fe\5@!\2\u01fe\u01ff\b\"\1\2\u01ff\u021c\3\2\2\2\u0200\u0201"+
+		"\5:\36\2\u0201\u0202\b\"\1\2\u0202\u021c\3\2\2\2\u0203\u0204\5<\37\2\u0204"+
+		"\u0205\b\"\1\2\u0205\u021c\3\2\2\2\u0206\u0207\5> \2\u0207\u0208\b\"\1"+
+		"\2\u0208\u021c\3\2\2\2\u0209\u020a\5\60\31\2\u020a\u020b\b\"\1\2\u020b"+
+		"\u021c\3\2\2\2\u020c\u020d\5J&\2\u020d\u020e\b\"\1\2\u020e\u021c\3\2\2"+
+		"\2\u020f\u0210\5L\'\2\u0210\u0211\b\"\1\2\u0211\u021c\3\2\2\2\u0212\u0213"+
+		"\7\64\2\2\u0213\u0214\5B\"\t\u0214\u0215\b\"\1\2\u0215\u021c\3\2\2\2\u0216"+
+		"\u0217\7\65\2\2\u0217\u0218\5B\"\2\u0218\u0219\7\66\2\2\u0219\u021a\b"+
+		"\"\1\2\u021a\u021c\3\2\2\2\u021b\u01fc\3\2\2\2\u021b\u0200\3\2\2\2\u021b"+
+		"\u0203\3\2\2\2\u021b\u0206\3\2\2\2\u021b\u0209\3\2\2\2\u021b\u020c\3\2"+
+		"\2\2\u021b\u020f\3\2\2\2\u021b\u0212\3\2\2\2\u021b\u0216\3\2\2\2\u021c"+
+		"\u025c\3\2\2\2\u021d\u021e\f\n\2\2\u021e\u021f\7\36\2\2\u021f\u0220\5"+
+		"B\"\13\u0220\u0221\b\"\1\2\u0221\u025b\3\2\2\2\u0222\u0223\f\b\2\2\u0223"+
+		"\u0229\b\"\1\2\u0224\u022a\7\33\2\2\u0225\u0226\7\34\2\2\u0226\u022a\b"+
+		"\"\1\2\u0227\u0228\7\35\2\2\u0228\u022a\b\"\1\2\u0229\u0224\3\2\2\2\u0229"+
+		"\u0225\3\2\2\2\u0229\u0227\3\2\2\2\u022a\u022b\3\2\2\2\u022b\u022c\5B"+
+		"\"\t\u022c\u022d\b\"\1\2\u022d\u025b\3\2\2\2\u022e\u022f\f\7\2\2\u022f"+
+		"\u0233\b\"\1\2\u0230\u0234\7\31\2\2\u0231\u0232\7\32\2\2\u0232\u0234\b"+
+		"\"\1\2\u0233\u0230\3\2\2\2\u0233\u0231\3\2\2\2\u0234\u0235\3\2\2\2\u0235"+
+		"\u0236\5B\"\b\u0236\u0237\b\"\1\2\u0237\u025b\3\2\2\2\u0238\u0239\f\6"+
+		"\2\2\u0239\u0241\b\"\1\2\u023a\u0242\7\"\2\2\u023b\u023c\7!\2\2\u023c"+
+		"\u0242\b\"\1\2\u023d\u023e\7#\2\2\u023e\u0242\b\"\1\2\u023f\u0240\7$\2"+
+		"\2\u0240\u0242\b\"\1\2\u0241\u023a\3\2\2\2\u0241\u023b\3\2\2\2\u0241\u023d"+
+		"\3\2\2\2\u0241\u023f\3\2\2\2\u0242\u0243\3\2\2\2\u0243\u0244\5B\"\7\u0244"+
+		"\u0245\b\"\1\2\u0245\u025b\3\2\2\2\u0246\u0247\f\5\2\2\u0247\u024b\b\""+
+		"\1\2\u0248\u0249\7\37\2\2\u0249\u024c\b\"\1\2\u024a\u024c\7 \2\2\u024b"+
+		"\u0248\3\2\2\2\u024b\u024a\3\2\2\2\u024c\u024d\3\2\2\2\u024d\u024e\5B"+
+		"\"\6\u024e\u024f\b\"\1\2\u024f\u025b\3\2\2\2\u0250\u0251\f\4\2\2\u0251"+
+		"\u0255\b\"\1\2\u0252\u0253\7\63\2\2\u0253\u0256\b\"\1\2\u0254\u0256\7"+
+		"\62\2\2\u0255\u0252\3\2\2\2\u0255\u0254\3\2\2\2\u0256\u0257\3\2\2\2\u0257"+
+		"\u0258\5B\"\5\u0258\u0259\b\"\1\2\u0259\u025b\3\2\2\2\u025a\u021d\3\2"+
+		"\2\2\u025a\u0222\3\2\2\2\u025a\u022e\3\2\2\2\u025a\u0238\3\2\2\2\u025a"+
+		"\u0246\3\2\2\2\u025a\u0250\3\2\2\2\u025b\u025e\3\2\2\2\u025c\u025a\3\2"+
+		"\2\2\u025c\u025d\3\2\2\2\u025dC\3\2\2\2\u025e\u025c\3\2\2\2\u025f\u0260"+
+		"\7\4\2\2\u0260E\3\2\2\2\u0261\u0262\7>\2\2\u0262\u0263\b$\1\2\u0263G\3"+
+		"\2\2\2\u0264\u0265\7=\2\2\u0265\u0266\b%\1\2\u0266I\3\2\2\2\u0267\u0268"+
+		"\7\27\2\2\u0268\u026c\b&\1\2\u0269\u026a\7\30\2\2\u026a\u026c\b&\1\2\u026b"+
+		"\u0267\3\2\2\2\u026b\u0269\3\2\2\2\u026cK\3\2\2\2\u026d\u026e\79\2\2\u026e"+
+		"M\3\2\2\2\u026f\u0270\7?\2\2\u0270O\3\2\2\2\u0271\u0272\7@\2\2\u0272Q"+
+		"\3\2\2\2\u0273\u0274\7A\2\2\u0274S\3\2\2\2\u0275\u0276\b+\1\2\u0276\u0279"+
+		"\7\6\2\2\u0277\u0279\5V,\2\u0278\u0275\3\2\2\2\u0278\u0277\3\2\2\2\u0279"+
+		"\u0280\3\2\2\2\u027a\u027b\f\6\2\2\u027b\u027f\7\6\2\2\u027c\u027d\f\5"+
+		"\2\2\u027d\u027f\5V,\2\u027e\u027a\3\2\2\2\u027e\u027c\3\2\2\2\u027f\u0282"+
+		"\3\2\2\2\u0280\u027e\3\2\2\2\u0280\u0281\3\2\2\2\u0281U\3\2\2\2\u0282"+
+		"\u0280\3\2\2\2\u0283\u0284\7\7\2\2\u0284W\3\2\2\2/dq\u0085\u0089\u0090"+
 		"\u009a\u00ac\u00b8\u00ce\u00f4\u010a\u0116\u0118\u0131\u013b\u0147\u0149"+
-		"\u0157\u015d\u0168\u0173\u017b\u0185\u0197\u01ac\u01ae\u01c4\u01e4\u01e6"+
-		"\u01f2\u01fb\u0200\u0221\u022a\u0234\u0242\u024c\u0256\u025b\u025d\u026c"+
-		"\u0279\u027f\u0281";
+		"\u0157\u015d\u0171\u0176\u0181\u0189\u0193\u01a5\u01b5\u01b7\u01c8\u01de"+
+		"\u01e0\u01ec\u01f5\u01fa\u021b\u0229\u0233\u0241\u024b\u0255\u025a\u025c"+
+		"\u026b\u0278\u027e\u0280";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {
